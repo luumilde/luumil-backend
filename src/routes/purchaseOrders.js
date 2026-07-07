@@ -205,9 +205,35 @@ router.delete('/lines/:lineId', async (req, res) => {
 });
 
 // ── PAYMENTS ────────────────────────────────────────────
+
+// Helper: validate that paid payments don't exceed order total
+async function validatePaymentsDontExceedTotal(orderId, paymentIdToExclude, candidateAmount, candidateIsPaid) {
+  const orderRes = await query('SELECT total FROM purchase_orders WHERE id=$1', [orderId]);
+  const orderTotal = parseFloat(orderRes.rows[0]?.total || 0);
+
+  const paymentsRes = await query(
+    'SELECT id, amount_mxn, is_paid FROM payments WHERE purchase_order_id=$1',
+    [orderId]
+  );
+  let totalPaid = paymentsRes.rows
+    .filter(p => p.is_paid && p.id !== paymentIdToExclude)
+    .reduce((s, p) => s + parseFloat(p.amount_mxn || 0), 0);
+
+  if (candidateIsPaid) totalPaid += parseFloat(candidateAmount || 0);
+
+  if (orderTotal > 0 && totalPaid > orderTotal + 0.01) {
+    const error = new Error(
+      `Total paid (${totalPaid.toFixed(2)}) would exceed order total (${orderTotal.toFixed(2)})`
+    );
+    error.code = 'PAYMENT_EXCEEDS_TOTAL';
+    throw error;
+  }
+}
+
 router.post('/:id/payments', async (req, res) => {
   try {
     const b = req.body;
+    await validatePaymentsDontExceedTotal(req.params.id, null, b.amountMxn, b.isPaid);
     const result = await query(
       `INSERT INTO payments (purchase_order_id, concept, amount_mxn, payment_date, reference, is_paid, attachment_url)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
@@ -215,6 +241,7 @@ router.post('/:id/payments', async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    if (err.code === 'PAYMENT_EXCEEDS_TOTAL') return res.status(400).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Failed to add payment' });
   }
@@ -223,14 +250,20 @@ router.post('/:id/payments', async (req, res) => {
 router.put('/payments/:paymentId', async (req, res) => {
   try {
     const b = req.body;
+    const existing = await query('SELECT purchase_order_id FROM payments WHERE id=$1', [req.params.paymentId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Payment not found' });
+    const orderId = existing.rows[0].purchase_order_id;
+
+    await validatePaymentsDontExceedTotal(orderId, parseInt(req.params.paymentId), b.amountMxn, b.isPaid);
+
     const result = await query(
       `UPDATE payments SET concept=$1, amount_mxn=$2, payment_date=$3, reference=$4, is_paid=$5, attachment_url=$6
        WHERE id=$7 RETURNING *`,
       [b.concept, b.amountMxn, b.paymentDate, b.reference, b.isPaid, b.attachmentUrl, req.params.paymentId]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Payment not found' });
     res.json(result.rows[0]);
   } catch (err) {
+    if (err.code === 'PAYMENT_EXCEEDS_TOTAL') return res.status(400).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Failed to update payment' });
   }
