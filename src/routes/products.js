@@ -53,7 +53,7 @@ router.post('/', async (req, res) => {
       [
         sku, b.supplierId || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
         b.heightCm || null, b.widthCm || null, b.depthCm || null, b.weightG || null, b.fragile || false,
-        b.purchasePriceMxn || null, b.purchasePriceMxn || null, b.salePriceEur || null,
+        parseFloat(b.purchasePriceMxn) || null, parseFloat(b.purchasePriceMxn) || null, parseFloat(b.salePriceEur) || null,
         b.hsCode, b.regulatoryStatus || 'green', b.requiresCites || false, b.requiresPhytosanitary || false,
         b.customsDescriptionDe, b.notes, JSON.stringify(b.photos || {}), req.user?.userName,
       ]
@@ -69,22 +69,24 @@ router.put('/:id', async (req, res) => {
   try {
     const b = req.body;
 
-    // If purchase price changed, update last_paid_price_mxn automatically
+    // Determinar si el precio cambió para actualizar last_paid_price_mxn
     const existing = await query('SELECT purchase_price_mxn FROM products WHERE id=$1', [req.params.id]);
-    const priceChanged = existing.rows[0] && parseFloat(existing.rows[0].purchase_price_mxn) !== parseFloat(b.purchasePriceMxn);
+    const oldPrice = parseFloat(existing.rows[0]?.purchase_price_mxn) || 0;
+    const newPrice = parseFloat(b.purchasePriceMxn) || 0;
+    const lastPaidPrice = newPrice !== oldPrice ? newPrice : oldPrice;
 
     const result = await query(
       `UPDATE products SET
         supplier_id=$1, name_es=$2, name_de=$3, categories=$4, materials=$5,
         height_cm=$6, width_cm=$7, depth_cm=$8, weight_g=$9, fragile=$10,
-        purchase_price_mxn=$11, ${priceChanged ? 'last_paid_price_mxn=$11,' : ''} sale_price_eur=$12,
-        hs_code=$13, regulatory_status=$14, requires_cites=$15, requires_phytosanitary=$16,
-        customs_description_de=$17, notes=$18, photos=$19, updated_at=now()
-       WHERE id=$20 RETURNING *`,
+        purchase_price_mxn=$11, last_paid_price_mxn=$12, sale_price_eur=$13,
+        hs_code=$14, regulatory_status=$15, requires_cites=$16, requires_phytosanitary=$17,
+        customs_description_de=$18, notes=$19, photos=$20, updated_at=now()
+       WHERE id=$21 RETURNING *`,
       [
         b.supplierId || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
         b.heightCm || null, b.widthCm || null, b.depthCm || null, b.weightG || null, b.fragile || false,
-        b.purchasePriceMxn || null, b.salePriceEur || null,
+        newPrice || null, lastPaidPrice || null, parseFloat(b.salePriceEur) || null,
         b.hsCode, b.regulatoryStatus || 'green', b.requiresCites || false, b.requiresPhytosanitary || false,
         b.customsDescriptionDe, b.notes, JSON.stringify(b.photos || {}), req.params.id,
       ]
