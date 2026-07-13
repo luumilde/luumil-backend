@@ -9,19 +9,24 @@ export const pool = new Pool({
   ssl: process.env.DATABASE_URL?.includes('railway') || process.env.NODE_ENV === 'production'
     ? { rejectUnauthorized: false }
     : false,
+  max: 10,                // máximo 10 conexiones simultáneas
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected pool error:', err);
 });
 
 export async function query(text, params) {
   const start = Date.now();
   const res = await pool.query(text, params);
-  const duration = Date.now() - start;
   if (process.env.DEBUG_SQL) {
-    console.log('query', { text, duration, rows: res.rowCount });
+    console.log('query', { ms: Date.now()-start, rows: res.rowCount, text: text.slice(0,80) });
   }
   return res;
 }
 
-// Generates next human-friendly folio, e.g. LUM-0001, PC-0001, REC-0001
 export async function nextFolio(prefix) {
   const res = await query(
     `INSERT INTO sequences (prefix, current_value)
