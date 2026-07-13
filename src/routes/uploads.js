@@ -42,6 +42,8 @@ router.get('/files/:filename', (req, res) => {
   const filename = path.basename(req.params.filename); // seguridad: no path traversal
   const filePath = path.join(UPLOAD_DIR, filename);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.sendFile(filePath);
 });
 

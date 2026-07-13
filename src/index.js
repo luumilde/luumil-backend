@@ -14,15 +14,14 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json({ limit: '1mb' })); // reducido — fotos ya no van en JSON
+app.use(cors({ origin: '*', exposedHeaders: ['Content-Type', 'Content-Length'] }));
+app.use(express.json({ limit: '1mb' }));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'luumil-backend' }));
 
-// Uploads — sin autenticación para las fotos públicas, con auth para subir
-app.use('/api/uploads/files', uploadsRoutes);            // GET público (ver fotos)
-app.use('/api/uploads', requireAuth, uploadsRoutes);     // POST/DELETE protegido
+// Uploads: GET /files/:name es público, POST y DELETE requieren auth
+app.use('/api/uploads', uploadsRoutes);
 
 // Auth pública
 app.use('/api/auth', authRoutes);
