@@ -1,24 +1,19 @@
 import express from 'express';
 import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
-import { google } from 'googleapis';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Credenciales de Google Drive desde variables de entorno
-const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
+// Configurar Cloudinary desde variables de entorno
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-function getDriveClient() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-  });
-  return google.drive({ version: 'v3', auth });
-}
-
-// Multer en memoria — no toca el disco
+// Multer en memoria
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
@@ -29,59 +24,56 @@ const upload = multer({
   },
 });
 
-// POST /api/uploads — sube al Drive y devuelve URL pública
+// Sube buffer a Cloudinary usando stream
+function uploadToCloudinary(buffer, folder) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: folder || 'luumil', resource_type: 'auto' },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+    Readable.from(buffer).pipe(stream);
+  });
+}
+
+// POST /api/uploads — sube a Cloudinary
 router.post('/', requireAuth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file received' });
 
-    const drive = getDriveClient();
+    const result = await uploadToCloudinary(req.file.buffer, 'luumil');
 
-    // Subir archivo a Drive
-    const driveRes = await drive.files.create({
-      requestBody: {
-        name: `${Date.now()}-${req.file.originalname}`,
-        parents: [DRIVE_FOLDER_ID],
-      },
-      media: {
-        mimeType: req.file.mimetype,
-        body: Readable.from(req.file.buffer),
-      },
-      fields: 'id, name',
+    res.json({
+      url: result.secure_url,
+      filename: result.public_id,
+      size: result.bytes,
     });
-
-    const fileId = driveRes.data.id;
-
-    // Hacer el archivo público para que se pueda ver desde la app
-    await drive.permissions.create({
-      fileId,
-      requestBody: { role: 'reader', type: 'anyone' },
-    });
-
-    // URL directa de la imagen (funciona cross-origin)
-    const url = `https://drive.google.com/uc?export=view&id=${fileId}`;
-
-    res.json({ url, filename: fileId, size: req.file.size });
   } catch (err) {
     console.error('Upload error:', err.message);
     res.status(500).json({ error: 'Upload failed: ' + err.message });
   }
 });
 
-// DELETE /api/uploads/files/:fileId — borra de Drive
-router.delete('/files/:fileId', requireAuth, async (req, res) => {
+// DELETE /api/uploads/files/:publicId — borra de Cloudinary
+router.delete('/files/:publicId', requireAuth, async (req, res) => {
   try {
-    const drive = getDriveClient();
-    await drive.files.delete({ fileId: req.params.fileId });
+    // El public_id puede tener slash (luumil/filename), viene codificado
+    const publicId = decodeURIComponent(req.params.publicId);
+    await cloudinary.uploader.destroy(publicId);
     res.status(204).end();
   } catch (err) {
     console.error('Delete error:', err.message);
-    res.status(204).end(); // Si ya no existe, igual retornamos 204
+    res.status(204).end();
   }
 });
 
-// GET /api/uploads/files/:fileId — redirige a Drive (compatibilidad)
-router.get('/files/:fileId', (req, res) => {
-  res.redirect(`https://drive.google.com/uc?export=view&id=${req.params.fileId}`);
+// GET /api/uploads/files/:publicId — redirige a Cloudinary
+router.get('/files/:publicId', (req, res) => {
+  const publicId = decodeURIComponent(req.params.publicId);
+  const url = cloudinary.url(publicId);
+  res.redirect(url);
 });
 
 export default router;
