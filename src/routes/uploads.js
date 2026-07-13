@@ -18,7 +18,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg','image/png','image/webp','image/heic','application/pdf'];
+    const allowed = ['image/jpeg','image/png','image/webp','image/heic','image/heif','application/pdf'];
     if (allowed.includes(file.mimetype)) cb(null, true);
     else cb(new Error('File type not allowed'));
   },
@@ -28,7 +28,12 @@ const upload = multer({
 function uploadToCloudinary(buffer, folder) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: folder || 'luumil', resource_type: 'auto' },
+      {
+        folder: folder || 'luumil',
+        resource_type: 'image',
+        format: 'jpg',           // forzar conversión a JPG
+        transformation: [{ quality: 'auto' }],
+      },
       (error, result) => {
         if (error) reject(error);
         else resolve(result);
