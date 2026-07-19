@@ -13,6 +13,8 @@ async function migrate() {
     ['bulk_discount_max_pct', 'NUMERIC'],
     ['has_video', 'BOOLEAN DEFAULT false'],
     ['video_url', 'TEXT'],
+    ['instagram', 'TEXT'],
+    ['facebook', 'TEXT'],
   ];
 
   for (const [col, type] of supplierCols) {

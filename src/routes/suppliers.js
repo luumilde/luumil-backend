@@ -42,8 +42,8 @@ router.post('/', async (req, res) => {
          bank_name, account_holder, clabe, notes, photos,
          invoices, invoice_surcharge_pct, ships,
          bulk_discount, bulk_discount_min_pct, bulk_discount_max_pct,
-         has_video, video_url, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+         has_video, video_url, instagram, facebook, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
        RETURNING *`,
       [
         b.name, b.technique, b.state, b.municipality, b.street, b.city, b.zipCode,
@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
         JSON.stringify(b.photos || {}),
         b.invoices || false, b.invoiceSurchargePct || null, b.ships || false,
         b.bulkDiscount || false, b.bulkDiscountMinPct || null, b.bulkDiscountMaxPct || null,
-        b.hasVideo || false, b.videoUrl || null, req.user?.userName,
+        b.hasVideo || false, b.videoUrl || null, b.instagram || null, b.facebook || null, req.user?.userName,
       ]
     );
     res.status(201).json(result.rows[0]);
@@ -72,8 +72,8 @@ router.put('/:id', async (req, res) => {
         marketing_story=$13, bank_name=$14, account_holder=$15, clabe=$16, notes=$17,
         photos=$18, invoices=$19, invoice_surcharge_pct=$20, ships=$21,
         bulk_discount=$22, bulk_discount_min_pct=$23, bulk_discount_max_pct=$24,
-        has_video=$25, video_url=$26, updated_at=now()
-       WHERE id=$27 RETURNING *`,
+        has_video=$25, video_url=$26, instagram=$27, facebook=$28, updated_at=now()
+       WHERE id=$29 RETURNING *`,
       [
         b.name, b.technique, b.state, b.municipality, b.street, b.city, b.zipCode,
         b.categories || [], b.contactName, b.whatsapp, b.email, b.deliveryTime,
@@ -81,7 +81,7 @@ router.put('/:id', async (req, res) => {
         JSON.stringify(b.photos || {}),
         b.invoices || false, b.invoiceSurchargePct || null, b.ships || false,
         b.bulkDiscount || false, b.bulkDiscountMinPct || null, b.bulkDiscountMaxPct || null,
-        b.hasVideo || false, b.videoUrl || null, req.params.id,
+        b.hasVideo || false, b.videoUrl || null, b.instagram || null, b.facebook || null, req.params.id,
       ]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Supplier not found' });

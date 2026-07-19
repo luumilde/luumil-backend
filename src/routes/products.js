@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
                LEFT JOIN suppliers s ON p.supplier_id = s.id`;
     const params = [];
     if (search) {
-      sql += ' WHERE p.name_es ILIKE $1 OR p.sku ILIKE $1';
+      sql += ' WHERE p.name_es ILIKE $1 OR p.sku ILIKE $1 OR s.name ILIKE $1 OR s.contact_name ILIKE $1';
       params.push(`%${search}%`);
     }
     sql += ' ORDER BY p.created_at DESC';
