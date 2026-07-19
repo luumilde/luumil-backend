@@ -51,7 +51,7 @@ router.post('/', async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING *`,
       [
-        sku, b.supplierId || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
+        sku, parseInt(b.supplierId) || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
         b.heightCm || null, b.widthCm || null, b.depthCm || null, b.weightG || null, b.fragile || false,
         parseFloat(b.purchasePriceMxn) || null, parseFloat(b.purchasePriceMxn) || null, parseFloat(b.salePriceEur) || null,
         b.hsCode, b.regulatoryStatus || 'green', b.requiresCites || false, b.requiresPhytosanitary || false,
@@ -84,7 +84,7 @@ router.put('/:id', async (req, res) => {
         customs_description_de=$18, notes=$19, photos=$20, updated_at=now()
        WHERE id=$21 RETURNING *`,
       [
-        b.supplierId || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
+        parseInt(b.supplierId) || null, b.nameEs, b.nameDe, b.categories || [], b.materials || [],
         b.heightCm || null, b.widthCm || null, b.depthCm || null, b.weightG || null, b.fragile || false,
         newPrice || null, lastPaidPrice || null, parseFloat(b.salePriceEur) || null,
         b.hsCode, b.regulatoryStatus || 'green', b.requiresCites || false, b.requiresPhytosanitary || false,
