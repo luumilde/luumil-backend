@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const { search } = req.query;
-    let sql = `SELECT p.*, s.name as supplier_name FROM products p
+    let sql = `SELECT p.*, s.name as supplier_name, s.contact_name as supplier_contact FROM products p
                LEFT JOIN suppliers s ON p.supplier_id = s.id`;
     const params = [];
     if (search) {
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(
-      `SELECT p.*, s.name as supplier_name FROM products p
+      `SELECT p.*, s.name as supplier_name, s.contact_name as supplier_contact FROM products p
        LEFT JOIN suppliers s ON p.supplier_id = s.id WHERE p.id = $1`,
       [req.params.id]
     );
