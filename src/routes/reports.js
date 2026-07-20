@@ -69,7 +69,7 @@ router.get('/products-in-progress', async (req, res) => {
         pol.id as line_id, pol.quantity_ordered, pol.quantity_received,
         pol.quantity_ordered - pol.quantity_received as quantity_pending,
         pol.unit_price_mxn, pol.line_status, pol.purchase_order_id,
-        po.folio as order_folio, po.status as order_status, po.delivery_date
+        po.folio as order_folio, po.status as order_status, po.delivery_date, po.iva_pct
       FROM purchase_order_lines pol
       JOIN purchase_orders po ON pol.purchase_order_id = po.id
       JOIN products p ON pol.product_id = p.id
