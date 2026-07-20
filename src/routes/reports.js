@@ -52,4 +52,31 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// Productos en proceso de compra (en pedidos activos)
+router.get('/products-in-progress', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        p.id, p.sku, p.name_es, p.name_de, p.photos, p.purchase_price_mxn, p.sale_price_eur,
+        p.fragile, p.categories, p.materials,
+        s.name as supplier_name, s.contact_name as supplier_contact,
+        pol.id as line_id, pol.quantity_ordered, pol.quantity_received,
+        pol.quantity_ordered - pol.quantity_received as quantity_pending,
+        pol.unit_price_mxn, pol.line_status, pol.purchase_order_id,
+        po.folio as order_folio, po.status as order_status, po.delivery_date
+      FROM purchase_order_lines pol
+      JOIN purchase_orders po ON pol.purchase_order_id = po.id
+      JOIN products p ON pol.product_id = p.id
+      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      WHERE po.status NOT IN ('cancelled', 'paid')
+        AND pol.line_status NOT IN ('cancelled', 'complete')
+      ORDER BY s.name, p.name_es
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to run report' });
+  }
+});
+
 export default router;
