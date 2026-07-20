@@ -33,17 +33,23 @@ router.get('/summary', async (req, res) => {
     const [suppliers, products, orders, receptions] = await Promise.all([
       query('SELECT COUNT(*) as count FROM suppliers'),
       query('SELECT COUNT(*) as count, COUNT(CASE WHEN fragile THEN 1 END) as fragile FROM products'),
-      query(`SELECT COUNT(*) as count, COALESCE(SUM(total),0) as total_mxn,
-             COUNT(CASE WHEN status NOT IN ('draft','cancelled') THEN 1 END) as active FROM purchase_orders`),
+      query(`SELECT
+        COUNT(*) as total,
+        COUNT(CASE WHEN status='draft' THEN 1 END) as draft_count,
+        COALESCE(SUM(CASE WHEN status='draft' THEN total ELSE 0 END),0) as draft_value,
+        COUNT(CASE WHEN status NOT IN ('draft','cancelled','paid') THEN 1 END) as active_count,
+        COALESCE(SUM(CASE WHEN status NOT IN ('draft','cancelled','paid') THEN total ELSE 0 END),0) as active_value
+        FROM purchase_orders`),
       query('SELECT COUNT(*) as count FROM receptions'),
     ]);
     res.json({
       suppliers: parseInt(suppliers.rows[0].count),
       products: parseInt(products.rows[0].count),
       fragileProducts: parseInt(products.rows[0].fragile),
-      orders: parseInt(orders.rows[0].count),
-      activeOrders: parseInt(orders.rows[0].active),
-      totalOrdersMxn: parseFloat(orders.rows[0].total_mxn),
+      draftOrders: parseInt(orders.rows[0].draft_count),
+      draftOrdersValue: parseFloat(orders.rows[0].draft_value),
+      activeOrders: parseInt(orders.rows[0].active_count),
+      activeOrdersValue: parseFloat(orders.rows[0].active_value),
       receptions: parseInt(receptions.rows[0].count),
     });
   } catch (err) {
