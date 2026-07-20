@@ -27,3 +27,16 @@ async function migrate() {
 }
 
 migrate().catch(err => { console.error('❌ Migration failed:', err); process.exit(1); });
+
+// Esta función la puedes correr por separado para agregar campos de pagos
+export async function migratePayments() {
+  const paymentCols = [
+    ['payment_method', "TEXT DEFAULT 'transfer'"],
+    ['paid_by', 'TEXT'],
+  ];
+  for (const [col, type] of paymentCols) {
+    await pool.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS ${col} ${type}`);
+    console.log(`  ✅ payments.${col}`);
+  }
+  console.log('✅ Payments migration complete');
+}

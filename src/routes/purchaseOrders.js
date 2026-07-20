@@ -235,9 +235,9 @@ router.post('/:id/payments', async (req, res) => {
     const b = req.body;
     await validatePaymentsDontExceedTotal(req.params.id, null, b.amountMxn, b.isPaid);
     const result = await query(
-      `INSERT INTO payments (purchase_order_id, concept, amount_mxn, payment_date, reference, is_paid, attachment_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [req.params.id, b.concept || 'Anticipo', b.amountMxn || 0, b.paymentDate || null, b.reference, b.isPaid || false, b.attachmentUrl || null]
+      `INSERT INTO payments (purchase_order_id, concept, amount_mxn, payment_date, reference, is_paid, payment_method, paid_by, attachment_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [req.params.id, b.concept || 'Anticipo', b.amountMxn || 0, b.paymentDate || null, b.reference, b.isPaid || false, b.paymentMethod || 'transfer', b.paidBy || null, b.attachmentUrl || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -257,9 +257,9 @@ router.put('/payments/:paymentId', async (req, res) => {
     await validatePaymentsDontExceedTotal(orderId, parseInt(req.params.paymentId), b.amountMxn, b.isPaid);
 
     const result = await query(
-      `UPDATE payments SET concept=$1, amount_mxn=$2, payment_date=$3, reference=$4, is_paid=$5, attachment_url=$6
-       WHERE id=$7 RETURNING *`,
-      [b.concept, b.amountMxn, b.paymentDate, b.reference, b.isPaid, b.attachmentUrl, req.params.paymentId]
+      `UPDATE payments SET concept=$1, amount_mxn=$2, payment_date=$3, reference=$4, is_paid=$5, payment_method=$6, paid_by=$7, attachment_url=$8
+       WHERE id=$9 RETURNING *`,
+      [b.concept, b.amountMxn, b.paymentDate, b.reference, b.isPaid, b.paymentMethod || 'transfer', b.paidBy || null, b.attachmentUrl, req.params.paymentId]
     );
     res.json(result.rows[0]);
   } catch (err) {
