@@ -337,6 +337,16 @@ router.post('/fiscal-documents/:docId/cancel', async (req, res) => {
   }
 });
 
+router.delete('/fiscal-documents/:docId', async (req, res) => {
+  try {
+    await query('DELETE FROM fiscal_documents WHERE id=$1', [req.params.docId]);
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete document' });
+  }
+});
+
 // Reconciliation summary: payments vs fiscal documents for an order
 router.get('/:id/reconciliation', async (req, res) => {
   try {
@@ -365,3 +375,43 @@ router.get('/:id/reconciliation', async (req, res) => {
 });
 
 export default router;
+
+// POST /:id/duplicate — duplicar una orden como nuevo draft
+router.post('/:id/duplicate', async (req, res) => {
+  try {
+    const orig = await query('SELECT * FROM purchase_orders WHERE id=$1', [req.params.id]);
+    if (orig.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    const o = orig.rows[0];
+
+    const today = new Date().toISOString().split('T')[0];
+    const newOrder = await query(
+      `INSERT INTO purchase_orders (folio, supplier_id, order_date, status, iva_pct, advance_pct,
+         delivery_place, instructions, internal_notes, created_by)
+       VALUES ((SELECT CONCAT('PC-', LPAD((current_value+1)::text,4,'0')) FROM sequences WHERE prefix='PC'),
+         $1,$2,'draft',$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [o.supplier_id, today, o.iva_pct, o.advance_pct, o.delivery_place, o.instructions, o.internal_notes, req.user?.userName]
+    );
+    await query(`UPDATE sequences SET current_value=current_value+1 WHERE prefix='PC'`);
+    const newId = newOrder.rows[0].id;
+
+    const lines = await query('SELECT * FROM purchase_order_lines WHERE purchase_order_id=$1', [req.params.id]);
+    for (const l of lines.rows) {
+      await query(
+        `INSERT INTO purchase_order_lines (purchase_order_id, product_id, quantity_ordered, unit_price_mxn, variant, line_status)
+         VALUES ($1,$2,$3,$4,$5,'pending')`,
+        [newId, l.product_id, l.quantity_ordered, l.unit_price_mxn, l.variant]
+      );
+    }
+
+    // Recalcular totales
+    const linesData = await query('SELECT quantity_ordered, unit_price_mxn FROM purchase_order_lines WHERE purchase_order_id=$1', [newId]);
+    const subtotal = linesData.rows.reduce((s,l)=>s+parseFloat(l.quantity_ordered)*parseFloat(l.unit_price_mxn),0);
+    const iva = subtotal * (parseFloat(o.iva_pct)||16) / 100;
+    await query('UPDATE purchase_orders SET subtotal=$1, iva_amount=$2, total=$3 WHERE id=$4', [subtotal, iva, subtotal+iva, newId]);
+
+    res.status(201).json(newOrder.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to duplicate order: ' + err.message });
+  }
+});
