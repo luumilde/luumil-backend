@@ -42,8 +42,10 @@ router.post('/', async (req, res) => {
          bank_name, account_holder, clabe, notes, photos,
          invoices, invoice_surcharge_pct, ships,
          bulk_discount, bulk_discount_min_pct, bulk_discount_max_pct,
-         has_video, video_url, instagram, facebook, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+         has_video, video_url, instagram, facebook, supplier_code, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,
+         (SELECT CONCAT('PROV-', LPAD((current_value+1)::text,4,'0')) FROM sequences WHERE prefix='PROV'),
+         $29)
        RETURNING *`,
       [
         b.name, b.technique, b.state, b.municipality, b.street, b.city, b.zipCode,
@@ -55,6 +57,7 @@ router.post('/', async (req, res) => {
         b.hasVideo || false, b.videoUrl || null, b.instagram || null, b.facebook || null, req.user?.userName,
       ]
     );
+    await query(`UPDATE sequences SET current_value=current_value+1 WHERE prefix='PROV'`);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
