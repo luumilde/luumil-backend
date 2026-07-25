@@ -103,12 +103,13 @@ router.post('/', async (req, res) => {
     const folio = await nextFolio('PC');
     const result = await query(
       `INSERT INTO purchase_orders
-        (folio, supplier_id, order_date, delivery_date, delivery_place, status, iva_pct, advance_pct, instructions, internal_notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        (folio, supplier_id, order_date, delivery_date, delivery_place, status, iva_pct, advance_pct, instructions, internal_notes, is_consignment, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         folio, b.supplierId || null, b.orderDate || null, b.deliveryDate || null,
         b.deliveryPlace || 'Bodega MX (CDMX)', b.status || 'draft',
-        b.ivaPct ?? 16, b.advancePct ?? 50, b.instructions, b.internalNotes, req.user?.userName,
+        b.ivaPct ?? 16, b.advancePct ?? 50, b.instructions, b.internalNotes,
+        b.isConsignment || false, req.user?.userName,
       ]
     );
     res.status(201).json(result.rows[0]);
@@ -125,12 +126,12 @@ router.put('/:id', async (req, res) => {
       `UPDATE purchase_orders SET
         supplier_id=$1, order_date=$2, delivery_date=$3, delivery_place=$4, status=$5,
         iva_pct=$6, advance_pct=$7, cancellation_resolution=$8, cancellation_reason=$9,
-        instructions=$10, internal_notes=$11, updated_at=now()
-       WHERE id=$12 RETURNING *`,
+        instructions=$10, internal_notes=$11, is_consignment=$12, updated_at=now()
+       WHERE id=$13 RETURNING *`,
       [
         b.supplierId || null, b.orderDate || null, b.deliveryDate || null, b.deliveryPlace,
         b.status, b.ivaPct, b.advancePct, b.cancellationResolution, b.cancellationReason,
-        b.instructions, b.internalNotes, req.params.id,
+        b.instructions, b.internalNotes, b.isConsignment || false, req.params.id,
       ]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
@@ -415,3 +416,6 @@ router.post('/:id/duplicate', async (req, res) => {
     res.status(500).json({ error: 'Failed to duplicate order: ' + err.message });
   }
 });
+
+// Migration helper — run once
+// ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS is_consignment BOOLEAN DEFAULT FALSE;
