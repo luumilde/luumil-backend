@@ -1,9 +1,9 @@
 import express from 'express';
 import { query } from '../db/pool.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
-router.use(authMiddleware);
+router.use(requireAuth);
 
 // GET /api/inventory/locations
 router.get('/locations', async (req, res) => {
