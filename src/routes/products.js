@@ -22,6 +22,32 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/products/meta/taxonomy — categorías y materiales distintos usados en productos
+// (se combinan con la lista base para que lo nuevo agregado por cualquier usuario
+// quede disponible para todos, aunque recarguen o entren desde otra sesión)
+router.get('/meta/taxonomy', async (req, res) => {
+  try {
+    // Categorías: union de las usadas en productos y en proveedores (rubro que produce)
+    const [cats, mats] = await Promise.all([
+      query(`
+        SELECT DISTINCT val FROM (
+          SELECT unnest(categories) AS val FROM products WHERE categories IS NOT NULL
+          UNION
+          SELECT unnest(categories) AS val FROM suppliers WHERE categories IS NOT NULL
+        ) x ORDER BY 1
+      `),
+      query(`SELECT DISTINCT unnest(materials) AS val FROM products WHERE materials IS NOT NULL ORDER BY 1`),
+    ]);
+    res.json({
+      categories: cats.rows.map(r => r.val).filter(Boolean),
+      materials: mats.rows.map(r => r.val).filter(Boolean),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch taxonomy' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(
