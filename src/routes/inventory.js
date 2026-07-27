@@ -52,6 +52,31 @@ router.get('/stock', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// GET /api/inventory/stock/:productId — stock disponible por bodega para un producto (para formulario de movimiento)
+router.get('/stock/:productId', async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT l.id AS location_id, l.name AS location_name,
+        COALESCE(SUM(
+          CASE WHEN sm.to_location_id = l.id THEN sm.quantity
+               WHEN sm.from_location_id = l.id THEN -sm.quantity
+               ELSE 0 END
+        ), 0)::int AS qty
+      FROM inventory_locations l
+      LEFT JOIN stock_movements sm ON sm.product_id = $1 AND (sm.to_location_id = l.id OR sm.from_location_id = l.id)
+      WHERE l.is_active = TRUE
+      GROUP BY l.id, l.name, l.sort_order
+      HAVING COALESCE(SUM(
+        CASE WHEN sm.to_location_id = l.id THEN sm.quantity
+             WHEN sm.from_location_id = l.id THEN -sm.quantity
+             ELSE 0 END
+      ), 0) > 0
+      ORDER BY l.sort_order
+    `, [req.params.productId]);
+    res.json(r.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/inventory/movements/:productId
 router.get('/movements/:productId', async (req, res) => {
   try {
@@ -74,8 +99,26 @@ router.get('/movements/:productId', async (req, res) => {
 router.post('/movements', async (req, res) => {
   try {
     const { productId, fromLocationId, toLocationId, quantity, movementType, reference, notes, movementDate } = req.body;
-    if (!productId || !toLocationId || !quantity || quantity <= 0)
-      return res.status(400).json({ error: 'productId, toLocationId y quantity son requeridos' });
+    if (!productId || !quantity || quantity <= 0)
+      return res.status(400).json({ error: 'productId y quantity son requeridos' });
+    if (!fromLocationId && !toLocationId)
+      return res.status(400).json({ error: 'Se requiere bodega origen y/o destino' });
+
+    // No permitir mover más piezas de las disponibles en la bodega origen
+    if (fromLocationId) {
+      const avail = await query(`
+        SELECT COALESCE(SUM(
+          CASE WHEN to_location_id = $2 THEN quantity
+               WHEN from_location_id = $2 THEN -quantity
+               ELSE 0 END
+        ), 0)::int AS qty
+        FROM stock_movements WHERE product_id = $1
+      `, [productId, fromLocationId]);
+      const availableQty = avail.rows[0].qty;
+      if (Number(quantity) > availableQty) {
+        return res.status(400).json({ error: `Solo hay ${availableQty} pieza(s) disponibles en esa bodega` });
+      }
+    }
 
     const r = await query(`
       INSERT INTO stock_movements
