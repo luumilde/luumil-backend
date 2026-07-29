@@ -90,23 +90,26 @@ router.put('/settings', async (req, res) => {
 // GET /api/pricing/products — precio calculado (MXN y EUR) por producto
 router.get('/products', async (req, res) => {
   try {
-    const { search, category } = req.query;
+    const { search, category, supplierId } = req.query;
     const settings = await getGlobalSettings();
     const totalPct = settings.packagingShippingPct + settings.fairCostsPct + settings.marketingPct + settings.otherCostsPct;
 
+    // Solo productos que ya están en al menos una orden de compra
     let sql = `
       SELECT p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur,
-        p.categories, s.name AS supplier_name,
+        p.categories, s.id AS supplier_id, s.name AS supplier_name,
         COALESCE(m.multiplier, 1) AS multiplier
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN category_pricing_multipliers m ON m.category = COALESCE(p.categories[1], 'Sin categoría')
+      WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
     `;
     const conditions = [];
     const params = [];
     if (search) { params.push(`%${search}%`); conditions.push(`(p.name_es ILIKE $${params.length} OR p.sku ILIKE $${params.length})`); }
     if (category) { params.push(category); conditions.push(`COALESCE(p.categories[1], 'Sin categoría') = $${params.length}`); }
-    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    if (supplierId) { params.push(supplierId); conditions.push(`s.id = $${params.length}`); }
+    if (conditions.length) sql += ' AND ' + conditions.join(' AND ');
     sql += ' ORDER BY p.name_es';
 
     const result = await query(sql, params);
