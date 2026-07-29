@@ -44,11 +44,11 @@ router.get('/assignable-products', async (req, res) => {
 // POST /api/fairs
 router.post('/', async (req, res) => {
   try {
-    const { name, totalCostMxn, notes } = req.body;
+    const { name, totalCostEur, notes } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     const r = await query(
-      `INSERT INTO fairs (name, total_cost_mxn, notes) VALUES ($1,$2,$3) RETURNING *`,
-      [name.trim(), parseFloat(totalCostMxn) || 0, notes || null]
+      `INSERT INTO fairs (name, total_cost_eur, notes) VALUES ($1,$2,$3) RETURNING *`,
+      [name.trim(), parseFloat(totalCostEur) || 0, notes || null]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) {
@@ -60,11 +60,11 @@ router.post('/', async (req, res) => {
 // PUT /api/fairs/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, totalCostMxn, notes } = req.body;
+    const { name, totalCostEur, notes } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     const r = await query(
-      `UPDATE fairs SET name=$1, total_cost_mxn=$2, notes=$3, updated_at=now() WHERE id=$4 RETURNING *`,
-      [name.trim(), parseFloat(totalCostMxn) || 0, notes || null, req.params.id]
+      `UPDATE fairs SET name=$1, total_cost_eur=$2, notes=$3, updated_at=now() WHERE id=$4 RETURNING *`,
+      [name.trim(), parseFloat(totalCostEur) || 0, notes || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Fair not found' });
     res.json(r.rows[0]);
@@ -109,7 +109,10 @@ router.get('/:id/products', async (req, res) => {
     `, [req.params.id]);
 
     const productCount = assigned.rows.length;
-    const fairCostPerProductMxn = productCount > 0 ? (parseFloat(fair.total_cost_mxn) || 0) / productCount : 0;
+    // El costo de la feria se captura en EUR (se paga en Alemania); se prorratea
+    // en EUR y se convierte a MXN con el tipo de cambio para sumarlo al costo base.
+    const fairCostPerProductEur = productCount > 0 ? (parseFloat(fair.total_cost_eur) || 0) / productCount : 0;
+    const fairCostPerProductMxn = fairCostPerProductEur * settings.exchangeRate;
 
     const products = assigned.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
@@ -119,7 +122,7 @@ router.get('/:id/products', async (req, res) => {
       const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
       return {
         ...p,
-        fairCostPerProductMxn: round2(fairCostPerProductMxn),
+        fairCostPerProductEur: round2(fairCostPerProductEur),
         costoMxn: round2(costoMxn),
         costoEur: costoEur != null ? round2(costoEur) : null,
         precioCalculadoMxn: round2(precioCalculadoMxn),
@@ -129,7 +132,7 @@ router.get('/:id/products', async (req, res) => {
     });
 
     res.json({
-      fair: { ...fair, productCount, fairCostPerProductMxn: round2(fairCostPerProductMxn) },
+      fair: { ...fair, productCount, fairCostPerProductEur: round2(fairCostPerProductEur) },
       products,
     });
   } catch (err) {

@@ -3,13 +3,13 @@ import { query } from './pool.js';
 async function migrate() {
   console.log('Running fairs migration...');
 
-  // Feria/evento: nombre y costo total (stand, viaje, etc.) a prorratear entre
-  // los productos que se le asignen.
+  // Feria/evento: nombre y costo total en EUR (stand, viaje, etc. — se paga en
+  // Alemania) a prorratear entre los productos que se le asignen.
   await query(`
     CREATE TABLE IF NOT EXISTS fairs (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      total_cost_mxn NUMERIC NOT NULL DEFAULT 0,
+      total_cost_eur NUMERIC NOT NULL DEFAULT 0,
       notes TEXT,
       created_at TIMESTAMPTZ DEFAULT now(),
       updated_at TIMESTAMPTZ DEFAULT now()
