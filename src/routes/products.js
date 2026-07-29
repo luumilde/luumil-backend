@@ -125,6 +125,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// PUT /api/products/:id/sale-price — actualiza solo el precio de venta EUR
+// (usado desde el módulo de precios, sin tocar el resto de los campos del producto)
+router.put('/:id/sale-price', async (req, res) => {
+  try {
+    const { salePriceEur } = req.body;
+    const result = await query(
+      `UPDATE products SET sale_price_eur = $1, updated_at = now() WHERE id = $2 RETURNING *`,
+      [salePriceEur === '' || salePriceEur == null ? null : parseFloat(salePriceEur), req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update sale price' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   try {
     await query('DELETE FROM products WHERE id = $1', [req.params.id]);
