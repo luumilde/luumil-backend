@@ -3,7 +3,7 @@ import { query } from '../db/pool.js';
 
 const router = express.Router();
 
-const GLOBAL_PCT_KEYS = ['packaging_shipping_pct', 'fair_costs_pct', 'marketing_pct', 'other_costs_pct'];
+const GLOBAL_PCT_KEYS = ['packaging_shipping_pct', 'marketing_pct', 'other_costs_pct'];
 
 // Asegura que exista un multiplicador para cada categoría conocida
 // (usada en productos o proveedores), más una fila 'Sin categoría' de respaldo.
@@ -25,13 +25,12 @@ async function ensureCategoryMultipliers() {
   }
 }
 
-async function getGlobalSettings() {
+export async function getGlobalSettings() {
   const r = await query(`SELECT key, value FROM app_settings`);
   const map = Object.fromEntries(r.rows.map(row => [row.key, parseFloat(row.value) || 0]));
   return {
     exchangeRate: map.eur_mxn_rate || 0,
     packagingShippingPct: map.packaging_shipping_pct || 0,
-    fairCostsPct: map.fair_costs_pct || 0,
     marketingPct: map.marketing_pct || 0,
     otherCostsPct: map.other_costs_pct || 0,
   };
@@ -53,12 +52,11 @@ router.get('/settings', async (req, res) => {
 // PUT /api/pricing/settings — guarda configuración global y/o multiplicadores por categoría
 router.put('/settings', async (req, res) => {
   try {
-    const { exchangeRate, packagingShippingPct, fairCostsPct, marketingPct, otherCostsPct, multipliers } = req.body;
+    const { exchangeRate, packagingShippingPct, marketingPct, otherCostsPct, multipliers } = req.body;
 
     const kv = {
       eur_mxn_rate: exchangeRate,
       packaging_shipping_pct: packagingShippingPct,
-      fair_costs_pct: fairCostsPct,
       marketing_pct: marketingPct,
       other_costs_pct: otherCostsPct,
     };
@@ -92,7 +90,7 @@ router.get('/products', async (req, res) => {
   try {
     const { search, category, supplierId } = req.query;
     const settings = await getGlobalSettings();
-    const totalPct = settings.packagingShippingPct + settings.fairCostsPct + settings.marketingPct + settings.otherCostsPct;
+    const totalPct = settings.packagingShippingPct + settings.marketingPct + settings.otherCostsPct;
 
     // Solo productos que ya están en al menos una orden de compra
     let sql = `
