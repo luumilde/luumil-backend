@@ -17,6 +17,20 @@ async function migrate() {
   `);
   console.log('  ✅ fairs');
 
+  // Si la tabla ya existía de una versión anterior con la columna en MXN,
+  // la renombramos a EUR sin perder los datos.
+  await query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='fairs' AND column_name='total_cost_mxn')
+         AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='fairs' AND column_name='total_cost_eur')
+      THEN
+        ALTER TABLE fairs RENAME COLUMN total_cost_mxn TO total_cost_eur;
+      END IF;
+    END $$;
+  `);
+  console.log('  ✅ renombrado total_cost_mxn → total_cost_eur (si aplicaba)');
+
   // Productos asignados a cada feria, con su precio EUR ajustado específico
   // para esa feria (un mismo producto puede tener un precio distinto por feria).
   await query(`
