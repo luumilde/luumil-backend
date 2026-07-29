@@ -113,16 +113,22 @@ router.get('/products', async (req, res) => {
     sql += ' ORDER BY p.name_es';
 
     const result = await query(sql, params);
+    const round2 = n => Math.round(n * 100) / 100;
     const rows = result.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
-      const costoConCargosMxn = purchasePrice * (1 + totalPct / 100);
-      const costoFinalMxn = costoConCargosMxn * (parseFloat(p.multiplier) || 1);
-      const precioSugeridoEur = settings.exchangeRate > 0 ? costoFinalMxn / settings.exchangeRate : null;
+      // Costo: precio de compra + costos generales (embalaje, ferias, marketing, otros). No incluye el multiplicador.
+      const costoMxn = purchasePrice * (1 + totalPct / 100);
+      // Precio calculado: el costo con el multiplicador de categoría aplicado (el multiplicador es margen/markup, no costo).
+      const precioCalculadoMxn = costoMxn * (parseFloat(p.multiplier) || 1);
+      const costoEur = settings.exchangeRate > 0 ? costoMxn / settings.exchangeRate : null;
+      const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
       return {
         ...p,
         totalPct,
-        costoFinalMxn: Math.round(costoFinalMxn * 100) / 100,
-        precioSugeridoEur: precioSugeridoEur != null ? Math.round(precioSugeridoEur * 100) / 100 : null,
+        costoMxn: round2(costoMxn),
+        costoEur: costoEur != null ? round2(costoEur) : null,
+        precioCalculadoMxn: round2(precioCalculadoMxn),
+        precioCalculadoEur: precioCalculadoEur != null ? round2(precioCalculadoEur) : null,
         exchangeRate: settings.exchangeRate,
       };
     });
