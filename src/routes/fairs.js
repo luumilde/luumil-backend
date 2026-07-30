@@ -86,7 +86,8 @@ router.delete('/:id', async (req, res) => {
 });
 
 // GET /api/fairs/:id/products — productos asignados, con precio calculado
-// prorrateando el costo total de la feria entre los productos asignados
+// prorrateando el costo total de la feria entre el total de PIEZAS asignadas
+// (no entre el número de SKUs)
 router.get('/:id/products', async (req, res) => {
   try {
     const fairRes = await query(`SELECT * FROM fairs WHERE id=$1`, [req.params.id]);
@@ -98,6 +99,7 @@ router.get('/:id/products', async (req, res) => {
 
     const assigned = await query(`
       SELECT fp.product_id AS assignment_product_id, fp.sale_price_eur AS fair_sale_price_eur,
+        fp.quantity,
         p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.categories, s.name AS supplier_name,
         COALESCE(m.multiplier,1) AS multiplier
       FROM fair_products fp
@@ -109,22 +111,30 @@ router.get('/:id/products', async (req, res) => {
     `, [req.params.id]);
 
     const productCount = assigned.rows.length;
+    const totalQuantity = assigned.rows.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);
     // El costo de la feria se captura en EUR (se paga en Alemania); se prorratea
-    // en EUR y se convierte a MXN con el tipo de cambio para sumarlo al costo base.
-    const fairCostPerProductEur = productCount > 0 ? (parseFloat(fair.total_cost_eur) || 0) / productCount : 0;
-    const fairCostPerProductMxn = fairCostPerProductEur * settings.exchangeRate;
+    // en EUR entre el total de piezas y se convierte a MXN con el tipo de cambio
+    // para sumarlo al costo base — es el mismo monto por pieza para todos los productos.
+    const fairCostPerUnitEur = totalQuantity > 0 ? (parseFloat(fair.total_cost_eur) || 0) / totalQuantity : 0;
+    const fairCostPerUnitMxn = fairCostPerUnitEur * settings.exchangeRate;
 
     const products = assigned.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
-      const costoMxn = purchasePrice * (1 + basePct / 100) + fairCostPerProductMxn;
-      const precioCalculadoMxn = costoMxn * (parseFloat(p.multiplier) || 1);
-      const costoEur = settings.exchangeRate > 0 ? costoMxn / settings.exchangeRate : null;
+      // Costo base: el mismo cálculo (y el mismo número) que se ve en Pricing → General,
+      // sin el costo de esta feria. Se muestra aparte para que ambas pantallas cuadren.
+      const costoBaseMxn = purchasePrice * (1 + basePct / 100);
+      const costoTotalMxn = costoBaseMxn + fairCostPerUnitMxn;
+      const precioCalculadoMxn = costoTotalMxn * (parseFloat(p.multiplier) || 1);
+      const costoBaseEur = settings.exchangeRate > 0 ? costoBaseMxn / settings.exchangeRate : null;
+      const costoTotalEur = settings.exchangeRate > 0 ? costoTotalMxn / settings.exchangeRate : null;
       const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
       return {
         ...p,
-        fairCostPerProductEur: round2(fairCostPerProductEur),
-        costoMxn: round2(costoMxn),
-        costoEur: costoEur != null ? round2(costoEur) : null,
+        fairCostPerUnitEur: round2(fairCostPerUnitEur),
+        costoBaseMxn: round2(costoBaseMxn),
+        costoBaseEur: costoBaseEur != null ? round2(costoBaseEur) : null,
+        costoTotalMxn: round2(costoTotalMxn),
+        costoTotalEur: costoTotalEur != null ? round2(costoTotalEur) : null,
         precioCalculadoMxn: round2(precioCalculadoMxn),
         precioCalculadoEur: precioCalculadoEur != null ? round2(precioCalculadoEur) : null,
         exchangeRate: settings.exchangeRate,
@@ -132,7 +142,7 @@ router.get('/:id/products', async (req, res) => {
     });
 
     res.json({
-      fair: { ...fair, productCount, fairCostPerProductEur: round2(fairCostPerProductEur) },
+      fair: { ...fair, productCount, totalQuantity, fairCostPerUnitEur: round2(fairCostPerUnitEur) },
       products,
     });
   } catch (err) {
@@ -184,6 +194,24 @@ router.delete('/:id/products/:productId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to remove product from fair' });
+  }
+});
+
+// PUT /api/fairs/:id/products/:productId/quantity — piezas de este producto para esta feria
+router.put('/:id/products/:productId/quantity', async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const qty = parseInt(quantity);
+    if (!qty || qty < 1) return res.status(400).json({ error: 'La cantidad debe ser al menos 1' });
+    const r = await query(
+      `UPDATE fair_products SET quantity=$1 WHERE fair_id=$2 AND product_id=$3 RETURNING *`,
+      [qty, req.params.id, req.params.productId]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Assignment not found' });
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update quantity' });
   }
 });
 
