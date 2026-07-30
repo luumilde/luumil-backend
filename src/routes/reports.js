@@ -58,6 +58,31 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// Pagos por persona — quién pagó cada pago registrado, con detalle por
+// orden de compra / proveedor. Solo cuenta lo efectivamente pagado (is_paid=true);
+// el agrupamiento por persona y por orden se resuelve en el frontend a partir
+// de esta lista plana, para poder reutilizarla en distintas vistas.
+router.get('/payments-by-person', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        pay.id, pay.paid_by, pay.amount_mxn, pay.payment_date, pay.concept,
+        pay.payment_method, pay.reference,
+        po.id as order_id, po.folio, po.status as order_status,
+        s.id as supplier_id, s.name as supplier_name
+      FROM payments pay
+      JOIN purchase_orders po ON pay.purchase_order_id = po.id
+      LEFT JOIN suppliers s ON po.supplier_id = s.id
+      WHERE pay.is_paid = true
+      ORDER BY pay.paid_by NULLS LAST, po.folio, pay.payment_date
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to run report' });
+  }
+});
+
 // Productos en proceso de compra (en pedidos activos)
 router.get('/products-in-progress', async (req, res) => {
   try {
