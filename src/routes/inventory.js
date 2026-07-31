@@ -208,6 +208,17 @@ router.post('/sync-from-orders', async (req, res) => {
         `Sincronizado desde orden ${row.folio}`,
         row.delivery_date ? row.delivery_date.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       ]);
+
+      // Al sincronizar el inventario de una orden paid, la línea de la orden
+      // también debe reflejar que ya se recibió por completo — si no, la línea
+      // se queda marcada "pending" para siempre aunque el producto ya tenga
+      // bodega asignada (esto es lo que reportó Myriam).
+      await query(`
+        UPDATE purchase_order_lines
+        SET quantity_received = quantity_ordered, line_status = 'complete'
+        WHERE purchase_order_id = $1 AND product_id = $2 AND line_status != 'complete'
+      `, [row.id, row.product_id]);
+
       synced++;
     }
 
