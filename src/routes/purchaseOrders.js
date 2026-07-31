@@ -70,7 +70,9 @@ router.get('/:id', async (req, res) => {
     if (orderRes.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
 
     const linesRes = await query(
-      `SELECT pol.*, p.sku, p.name_es, p.purchase_price_mxn as catalog_price, p.photos
+      `SELECT pol.*, p.sku, p.name_es, p.purchase_price_mxn as catalog_price, p.photos,
+         (SELECT json_agg(json_build_object('location', cs.location_name, 'qty', cs.qty) ORDER BY cs.location_name)
+          FROM current_stock cs WHERE cs.product_id = p.id) AS stock_locations
        FROM purchase_order_lines pol
        LEFT JOIN products p ON pol.product_id = p.id
        WHERE pol.purchase_order_id = $1 ORDER BY pol.id`,
