@@ -1,5 +1,6 @@
 import express from 'express';
 import { query, nextFolio } from '../db/pool.js';
+import { mapDeliveryPlace } from './inventory.js';
 
 const router = express.Router();
 
@@ -104,6 +105,30 @@ router.post('/:id/lines', async (req, res) => {
         'UPDATE purchase_order_lines SET quantity_received=$1, line_status=$2 WHERE id=$3',
         [newQtyReceived, newStatus, b.purchaseOrderLineId]
       );
+
+      // Registrar el movimiento de inventario en el momento real en que el
+      // producto llega a una bodega — es decir, cuando se captura la recepción
+      // física, no cuando la orden se marca "paid". Así el producto aparece con
+      // su bodega asignada aunque la orden todavía no se pague.
+      if (pol.product_id && parseFloat(b.quantityReceived || 0) > 0) {
+        const orderRes = await query('SELECT folio FROM purchase_orders WHERE id=$1', [pol.purchase_order_id]);
+        const orderFolio = orderRes.rows[0]?.folio;
+        const recRes = await query('SELECT reception_place, folio FROM receptions WHERE id=$1', [req.params.id]);
+        const rec = recRes.rows[0];
+        const locName = mapDeliveryPlace(rec?.reception_place);
+        const locRes = await query('SELECT id FROM inventory_locations WHERE name=$1', [locName]);
+        if (locRes.rows.length && orderFolio) {
+          await query(
+            `INSERT INTO stock_movements
+              (product_id, from_location_id, to_location_id, quantity, movement_type, reference, notes, movement_date, created_by)
+             VALUES ($1, NULL, $2, $3, 'reception', $4, $5, CURRENT_DATE, $6)`,
+            [
+              pol.product_id, locRes.rows[0].id, b.quantityReceived, orderFolio,
+              `Recepción ${rec?.folio || ''}`, req.user?.userName || 'system',
+            ]
+          );
+        }
+      }
 
       // Recompute parent order status
       const allLines = await query('SELECT line_status FROM purchase_order_lines WHERE purchase_order_id=$1', [pol.purchase_order_id]);

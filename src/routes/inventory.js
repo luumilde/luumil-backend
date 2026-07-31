@@ -157,8 +157,9 @@ router.get('/all-stock', async (req, res) => {
 
 export default router;
 
-// Mapear delivery_place a nombre de ubicación en BD
-function mapDeliveryPlace(deliveryPlace) {
+// Mapear delivery_place / reception_place a nombre de ubicación en BD
+// (exportada para que receptions.js la reutilice al registrar recepciones)
+export function mapDeliveryPlace(deliveryPlace) {
   const map = {
     'Bodega MX (CDMX)': 'Bodega MX (CDMX)',
     'Bodega Munich': 'Bodega Munich',
@@ -183,10 +184,12 @@ router.post('/sync-from-orders', async (req, res) => {
         AND pol.product_id IS NOT NULL
         AND pol.quantity_ordered > 0
         AND NOT EXISTS (
+          -- Si ya se registró inventario para este producto+orden (ya sea porque
+          -- se hizo una Recepción física o porque ya se sincronizó antes), no
+          -- volver a agregar movimiento — evita duplicar piezas en bodega.
           SELECT 1 FROM stock_movements sm
           WHERE sm.product_id = pol.product_id
             AND sm.reference = po.folio
-            AND sm.movement_type = 'order_paid'
         )
     `);
 
