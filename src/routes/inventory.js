@@ -23,7 +23,7 @@ router.get('/stock', async (req, res) => {
         array_to_string(p.categories,';') AS categories,
         array_to_string(p.materials,';') AS materials,
         p.photos, p.purchase_price_mxn,
-        s.name AS supplier_name,
+        s.id AS supplier_id, s.name AS supplier_name,
         json_object_agg(l.name, cs.qty) FILTER (WHERE cs.qty > 0) AS stock_by_location,
         SUM(cs.qty) AS total_qty
       FROM products p
@@ -39,8 +39,9 @@ router.get('/stock', async (req, res) => {
       ) outs ON outs.product_id = p.id AND outs.loc_id = l.id
       CROSS JOIN LATERAL (SELECT COALESCE(ins.qty,0) - COALESCE(outs.qty,0) AS qty) cs
       WHERE l.is_active = TRUE
-      GROUP BY p.id, p.sku, p.name_es, p.categories, p.materials, p.photos, p.purchase_price_mxn, s.name
+      GROUP BY p.id, p.sku, p.name_es, p.categories, p.materials, p.photos, p.purchase_price_mxn, s.id, s.name
       HAVING SUM(cs.qty) > 0
+        OR EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
     `;
     const params = [];
     const conditions = [];
