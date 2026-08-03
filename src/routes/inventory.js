@@ -34,7 +34,19 @@ router.get('/stock', async (req, res) => {
           FROM purchase_order_lines pol
           JOIN purchase_orders po ON po.id = pol.purchase_order_id
           WHERE pol.product_id = p.id AND po.status != 'cancelled' AND pol.line_status != 'complete'
-        ) AS pending_qty
+        ) AS pending_qty,
+        (
+          -- ¿Alguna de las órdenes de este producto es consignación (no cancelada)
+          -- y todavía no está liquidada por completo? Ese stock no es "tuyo" hasta
+          -- que se vende y se le paga al artesano por lo vendido.
+          SELECT COALESCE(BOOL_OR(
+            po.is_consignment AND po.status != 'cancelled' AND
+            COALESCE((SELECT SUM(pay.amount_mxn) FROM payments pay WHERE pay.purchase_order_id = po.id AND pay.is_paid = true), 0) < COALESCE(po.total, 0)
+          ), false)
+          FROM purchase_order_lines pol
+          JOIN purchase_orders po ON po.id = pol.purchase_order_id
+          WHERE pol.product_id = p.id
+        ) AS consignment_pending
       FROM products p
       LEFT JOIN suppliers s ON p.supplier_id = s.id
       CROSS JOIN inventory_locations l
