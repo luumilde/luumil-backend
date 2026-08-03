@@ -152,7 +152,7 @@ router.get('/:id/products', async (req, res) => {
     const assigned = await query(`
       SELECT fp.product_id AS assignment_product_id, fp.sale_price_eur AS fair_sale_price_eur,
         fp.quantity,
-        p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.categories, s.name AS supplier_name,
+        p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
         COALESCE(fm.multiplier, $2) AS multiplier
       FROM fair_products fp
       JOIN products p ON p.id = fp.product_id
@@ -166,28 +166,38 @@ router.get('/:id/products', async (req, res) => {
     const totalQuantity = assigned.rows.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);
     // El costo de la feria se captura en EUR (se paga en Alemania); se prorratea
     // en EUR entre el total de piezas y se convierte a MXN con el tipo de cambio
-    // para sumarlo al costo base — es el mismo monto por pieza para todos los productos.
+    // para sumarlo al precio base — es el mismo monto por pieza para todos los productos.
     const fairCostPerUnitEur = totalQuantity > 0 ? (parseFloat(fair.total_cost_eur) || 0) / totalQuantity : 0;
     const fairCostPerUnitMxn = fairCostPerUnitEur * settings.exchangeRate;
 
     const products = assigned.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
-      // Costo base: el mismo cálculo (y el mismo número) que se ve en Pricing → General,
-      // sin el costo de esta feria. Se muestra aparte para que ambas pantallas cuadren.
-      const costoBaseMxn = purchasePrice * (1 + basePct / 100);
-      const costoTotalMxn = costoBaseMxn + fairCostPerUnitMxn;
-      const precioCalculadoMxn = costoTotalMxn * (parseFloat(p.multiplier) || 1);
-      const costoBaseEur = settings.exchangeRate > 0 ? costoBaseMxn / settings.exchangeRate : null;
-      const costoTotalEur = settings.exchangeRate > 0 ? costoTotalMxn / settings.exchangeRate : null;
-      const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
+
+      // Precio base: el precio que ya está decidido en Pricing → General para
+      // este producto. Prioridad: el "Precio EUR asignado" (confirmado a mano);
+      // si no se ha confirmado ninguno, se usa el precio calculado automático de
+      // General (mismo costo + multiplicador general que se ve ahí).
+      const generalCalculadoMxn = purchasePrice * (1 + basePct / 100) * settings.generalMultiplier;
+      const generalCalculadoEur = settings.exchangeRate > 0 ? generalCalculadoMxn / settings.exchangeRate : null;
+      const assignedEur = p.sale_price_eur != null ? parseFloat(p.sale_price_eur) : null;
+      const basePriceSource = assignedEur != null ? 'assigned' : 'calculated';
+      const basePriceEur = assignedEur != null ? assignedEur : generalCalculadoEur;
+      const basePriceMxn = basePriceEur != null ? basePriceEur * settings.exchangeRate : null;
+
+      const totalMxn = basePriceMxn != null ? basePriceMxn + fairCostPerUnitMxn : null;
+      const totalEur = settings.exchangeRate > 0 && totalMxn != null ? totalMxn / settings.exchangeRate : null;
+      const precioCalculadoMxn = totalMxn != null ? totalMxn * (parseFloat(p.multiplier) || 1) : null;
+      const precioCalculadoEur = settings.exchangeRate > 0 && precioCalculadoMxn != null ? precioCalculadoMxn / settings.exchangeRate : null;
+
       return {
         ...p,
         fairCostPerUnitEur: round2(fairCostPerUnitEur),
-        costoBaseMxn: round2(costoBaseMxn),
-        costoBaseEur: costoBaseEur != null ? round2(costoBaseEur) : null,
-        costoTotalMxn: round2(costoTotalMxn),
-        costoTotalEur: costoTotalEur != null ? round2(costoTotalEur) : null,
-        precioCalculadoMxn: round2(precioCalculadoMxn),
+        basePriceSource,
+        basePriceMxn: basePriceMxn != null ? round2(basePriceMxn) : null,
+        basePriceEur: basePriceEur != null ? round2(basePriceEur) : null,
+        totalMxn: totalMxn != null ? round2(totalMxn) : null,
+        totalEur: totalEur != null ? round2(totalEur) : null,
+        precioCalculadoMxn: precioCalculadoMxn != null ? round2(precioCalculadoMxn) : null,
         precioCalculadoEur: precioCalculadoEur != null ? round2(precioCalculadoEur) : null,
         exchangeRate: settings.exchangeRate,
       };

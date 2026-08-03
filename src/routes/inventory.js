@@ -41,7 +41,13 @@ router.get('/stock', async (req, res) => {
       WHERE l.is_active = TRUE
       GROUP BY p.id, p.sku, p.name_es, p.categories, p.materials, p.photos, p.purchase_price_mxn, s.id, s.name
       HAVING SUM(cs.qty) > 0
-        OR EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
+        OR EXISTS (
+          -- "Sin bodega" = todavía no recibido, pero en una orden de compra viva
+          -- (no cancelada) — así no se mezcla con productos de órdenes canceladas.
+          SELECT 1 FROM purchase_order_lines pol
+          JOIN purchase_orders po ON po.id = pol.purchase_order_id
+          WHERE pol.product_id = p.id AND po.status != 'cancelled'
+        )
     `;
     const params = [];
     const conditions = [];
