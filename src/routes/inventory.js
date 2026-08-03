@@ -25,7 +25,16 @@ router.get('/stock', async (req, res) => {
         p.photos, p.purchase_price_mxn,
         s.id AS supplier_id, s.name AS supplier_name,
         json_object_agg(l.name, cs.qty) FILTER (WHERE cs.qty > 0) AS stock_by_location,
-        SUM(cs.qty) AS total_qty
+        SUM(cs.qty) AS total_qty,
+        (
+          -- Piezas todavía por recibir en órdenes vivas (no canceladas) — puede
+          -- coexistir con stock ya recibido (ej. una orden ya llegó y otra
+          -- todavía no), por eso se muestra aparte y no solo como "Sin bodega".
+          SELECT COALESCE(SUM(GREATEST(pol.quantity_ordered - pol.quantity_received, 0)), 0)
+          FROM purchase_order_lines pol
+          JOIN purchase_orders po ON po.id = pol.purchase_order_id
+          WHERE pol.product_id = p.id AND po.status != 'cancelled' AND pol.line_status != 'complete'
+        ) AS pending_qty
       FROM products p
       LEFT JOIN suppliers s ON p.supplier_id = s.id
       CROSS JOIN inventory_locations l
@@ -42,8 +51,8 @@ router.get('/stock', async (req, res) => {
       GROUP BY p.id, p.sku, p.name_es, p.categories, p.materials, p.photos, p.purchase_price_mxn, s.id, s.name
       HAVING SUM(cs.qty) > 0
         OR EXISTS (
-          -- "Sin bodega" = todavía no recibido, pero en una orden de compra viva
-          -- (no cancelada) — así no se mezcla con productos de órdenes canceladas.
+          -- Aparece en la lista (con o sin bodega) si tiene una orden de compra viva
+          -- (no cancelada), aunque ya tenga algo de stock de otra orden distinta.
           SELECT 1 FROM purchase_order_lines pol
           JOIN purchase_orders po ON po.id = pol.purchase_order_id
           WHERE pol.product_id = p.id AND po.status != 'cancelled'
