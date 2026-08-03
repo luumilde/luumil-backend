@@ -5,9 +5,10 @@ const router = express.Router();
 
 const GLOBAL_PCT_KEYS = ['packaging_shipping_pct', 'marketing_pct', 'other_costs_pct'];
 
-// Asegura que exista un multiplicador para cada categoría conocida
-// (usada en productos o proveedores), más una fila 'Sin categoría' de respaldo.
-async function ensureCategoryMultipliers() {
+// Lista de categorías conocidas (de productos y proveedores), más 'Sin categoría'
+// de respaldo — la usan tanto General (ya no, ver abajo) como cada Feria para
+// saber qué categorías mostrar en su propia configuración de multiplicadores.
+export async function getCategoryList() {
   const cats = await query(`
     SELECT DISTINCT val FROM (
       SELECT unnest(categories) AS val FROM products WHERE categories IS NOT NULL
@@ -15,14 +16,9 @@ async function ensureCategoryMultipliers() {
       SELECT unnest(categories) AS val FROM suppliers WHERE categories IS NOT NULL
       UNION
       SELECT 'Sin categoría' AS val
-    ) x WHERE val IS NOT NULL
+    ) x WHERE val IS NOT NULL ORDER BY val
   `);
-  for (const row of cats.rows) {
-    await query(
-      `INSERT INTO category_pricing_multipliers (category) VALUES ($1) ON CONFLICT (category) DO NOTHING`,
-      [row.val]
-    );
-  }
+  return cats.rows.map(r => r.val);
 }
 
 export async function getGlobalSettings() {
@@ -33,26 +29,27 @@ export async function getGlobalSettings() {
     packagingShippingPct: map.packaging_shipping_pct || 0,
     marketingPct: map.marketing_pct || 0,
     otherCostsPct: map.other_costs_pct || 0,
+    // Un solo multiplicador de rentabilidad aplicado a todos los productos —
+    // reemplaza el multiplicador por categoría, que ahora se configura por feria.
+    generalMultiplier: map.general_multiplier || 1,
   };
 }
 
-// GET /api/pricing/settings — configuración global de costos + multiplicador por categoría
+// GET /api/pricing/settings — configuración global de costos + multiplicador general
 router.get('/settings', async (req, res) => {
   try {
-    await ensureCategoryMultipliers();
     const settings = await getGlobalSettings();
-    const multipliers = await query(`SELECT category, multiplier FROM category_pricing_multipliers ORDER BY category`);
-    res.json({ ...settings, multipliers: multipliers.rows });
+    res.json(settings);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch pricing settings' });
   }
 });
 
-// PUT /api/pricing/settings — guarda configuración global y/o multiplicadores por categoría
+// PUT /api/pricing/settings — guarda configuración global (%, tipo de cambio, multiplicador general)
 router.put('/settings', async (req, res) => {
   try {
-    const { exchangeRate, packagingShippingPct, marketingPct, otherCostsPct, multipliers } = req.body;
+    const { exchangeRate, packagingShippingPct, marketingPct, otherCostsPct, generalMultiplier } = req.body;
 
     const kv = {
       eur_mxn_rate: exchangeRate,
@@ -69,12 +66,11 @@ router.put('/settings', async (req, res) => {
       );
     }
 
-    for (const m of (multipliers || [])) {
+    if (generalMultiplier !== undefined) {
       await query(
-        `INSERT INTO category_pricing_multipliers (category, multiplier, updated_at)
-         VALUES ($1,$2, now())
-         ON CONFLICT (category) DO UPDATE SET multiplier = $2, updated_at = now()`,
-        [m.category, parseFloat(m.multiplier) || 1]
+        `INSERT INTO app_settings (key, value, updated_at) VALUES ('general_multiplier',$1, now())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`,
+        [String(parseFloat(generalMultiplier) || 1)]
       );
     }
 
@@ -95,11 +91,9 @@ router.get('/products', async (req, res) => {
     // Solo productos que ya están en al menos una orden de compra
     let sql = `
       SELECT p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur,
-        p.categories, s.id AS supplier_id, s.name AS supplier_name,
-        COALESCE(m.multiplier, 1) AS multiplier
+        p.categories, s.id AS supplier_id, s.name AS supplier_name
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
-      LEFT JOIN category_pricing_multipliers m ON m.category = COALESCE(p.categories[1], 'Sin categoría')
       WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
     `;
     const conditions = [];
@@ -116,13 +110,16 @@ router.get('/products', async (req, res) => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
       // Costo: precio de compra + costos generales (embalaje, ferias, marketing, otros). No incluye el multiplicador.
       const costoMxn = purchasePrice * (1 + totalPct / 100);
-      // Precio calculado: el costo con el multiplicador de categoría aplicado (el multiplicador es margen/markup, no costo).
-      const precioCalculadoMxn = costoMxn * (parseFloat(p.multiplier) || 1);
+      // Precio calculado: el costo con el multiplicador general de rentabilidad aplicado
+      // (un solo multiplicador para todos los productos — el multiplicador por
+      // categoría ahora se configura por feria, no aquí).
+      const precioCalculadoMxn = costoMxn * settings.generalMultiplier;
       const costoEur = settings.exchangeRate > 0 ? costoMxn / settings.exchangeRate : null;
       const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
       return {
         ...p,
         totalPct,
+        multiplier: settings.generalMultiplier,
         costoMxn: round2(costoMxn),
         costoEur: costoEur != null ? round2(costoEur) : null,
         precioCalculadoMxn: round2(precioCalculadoMxn),

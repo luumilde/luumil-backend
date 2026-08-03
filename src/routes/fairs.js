@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../db/pool.js';
-import { getGlobalSettings } from './pricing.js';
+import { getGlobalSettings, getCategoryList } from './pricing.js';
 
 const router = express.Router();
 const round2 = n => Math.round(n * 100) / 100;
@@ -38,6 +38,56 @@ router.get('/assignable-products', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch assignable products' });
+  }
+});
+
+// GET /api/fairs/:id/multipliers — multiplicador por categoría, propio de esta feria
+// (a diferencia del multiplicador general de Pricing, cada feria puede tener su
+// propio margen por categoría — ej. joyería más cara en una feria premium).
+router.get('/:id/multipliers', async (req, res) => {
+  try {
+    const fairRes = await query(`SELECT id FROM fairs WHERE id=$1`, [req.params.id]);
+    if (!fairRes.rows.length) return res.status(404).json({ error: 'Fair not found' });
+
+    const categories = await getCategoryList();
+    const settings = await getGlobalSettings();
+    // Sembrar con el multiplicador general como punto de partida razonable la
+    // primera vez que se abre esta pantalla para la feria.
+    for (const cat of categories) {
+      await query(
+        `INSERT INTO fair_category_multipliers (fair_id, category, multiplier)
+         VALUES ($1,$2,$3) ON CONFLICT (fair_id, category) DO NOTHING`,
+        [req.params.id, cat, settings.generalMultiplier]
+      );
+    }
+
+    const rows = await query(
+      `SELECT category, multiplier FROM fair_category_multipliers WHERE fair_id=$1 ORDER BY category`,
+      [req.params.id]
+    );
+    res.json(rows.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch fair multipliers' });
+  }
+});
+
+// PUT /api/fairs/:id/multipliers — guardar multiplicadores por categoría de esta feria
+router.put('/:id/multipliers', async (req, res) => {
+  try {
+    const { multipliers } = req.body;
+    for (const m of (multipliers || [])) {
+      await query(
+        `INSERT INTO fair_category_multipliers (fair_id, category, multiplier, updated_at)
+         VALUES ($1,$2,$3, now())
+         ON CONFLICT (fair_id, category) DO UPDATE SET multiplier = $3, updated_at = now()`,
+        [req.params.id, m.category, parseFloat(m.multiplier) || 1]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save fair multipliers' });
   }
 });
 
@@ -97,18 +147,20 @@ router.get('/:id/products', async (req, res) => {
     const settings = await getGlobalSettings();
     const basePct = settings.packagingShippingPct + settings.marketingPct + settings.otherCostsPct;
 
+    // El multiplicador aplicado es el de esta feria por categoría (fair_category_multipliers),
+    // no el multiplicador general de Pricing → General — cada feria puede tener su propio margen.
     const assigned = await query(`
       SELECT fp.product_id AS assignment_product_id, fp.sale_price_eur AS fair_sale_price_eur,
         fp.quantity,
         p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.categories, s.name AS supplier_name,
-        COALESCE(m.multiplier,1) AS multiplier
+        COALESCE(fm.multiplier, $2) AS multiplier
       FROM fair_products fp
       JOIN products p ON p.id = fp.product_id
       LEFT JOIN suppliers s ON s.id = p.supplier_id
-      LEFT JOIN category_pricing_multipliers m ON m.category = COALESCE(p.categories[1], 'Sin categoría')
+      LEFT JOIN fair_category_multipliers fm ON fm.fair_id = fp.fair_id AND fm.category = COALESCE(p.categories[1], 'Sin categoría')
       WHERE fp.fair_id = $1
       ORDER BY p.name_es
-    `, [req.params.id]);
+    `, [req.params.id, settings.generalMultiplier]);
 
     const productCount = assigned.rows.length;
     const totalQuantity = assigned.rows.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);

@@ -33,7 +33,8 @@ async function migrate() {
       ('packaging_shipping_pct', '0'),
       ('fair_costs_pct', '0'),
       ('marketing_pct', '0'),
-      ('other_costs_pct', '0')
+      ('other_costs_pct', '0'),
+      ('general_multiplier', '1')
     ON CONFLICT (key) DO NOTHING
   `);
   console.log('  ✅ seeds de configuración global (ajústalos en la pantalla de configuración)');

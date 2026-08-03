@@ -51,6 +51,21 @@ async function migrate() {
   await query(`ALTER TABLE fair_products ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1`);
   console.log('  ✅ fair_products.quantity');
 
+  // Multiplicador por categoría, propio de cada feria (reemplaza el multiplicador
+  // por categoría que antes vivía en Pricing → General, ahora un solo multiplicador
+  // general ahí — el detalle por categoría se configura feria por feria).
+  await query(`
+    CREATE TABLE IF NOT EXISTS fair_category_multipliers (
+      id SERIAL PRIMARY KEY,
+      fair_id INTEGER NOT NULL REFERENCES fairs(id) ON DELETE CASCADE,
+      category TEXT NOT NULL,
+      multiplier NUMERIC NOT NULL DEFAULT 1,
+      updated_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE(fair_id, category)
+    )
+  `);
+  console.log('  ✅ fair_category_multipliers');
+
   console.log('✅ Done');
   process.exit(0);
 }
