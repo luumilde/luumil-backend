@@ -43,14 +43,26 @@ async function maybeUpdateOrderStatusFromLines(orderId) {
 // ── ORDERS ──────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, category } = req.query;
     let sql = `SELECT po.*, s.name as supplier_name FROM purchase_orders po
                LEFT JOIN suppliers s ON po.supplier_id = s.id`;
     const params = [];
+    const conditions = [];
     if (status && status !== 'all') {
-      sql += ' WHERE po.status = $1';
       params.push(status);
+      conditions.push(`po.status = $${params.length}`);
     }
+    if (category) {
+      // Lista órdenes con al menos una línea cuyo producto tenga esta categoría
+      // (un producto puede tener varias categorías — categories es un array).
+      params.push(category);
+      conditions.push(`EXISTS (
+        SELECT 1 FROM purchase_order_lines pol
+        JOIN products p ON p.id = pol.product_id
+        WHERE pol.purchase_order_id = po.id AND $${params.length} = ANY(p.categories)
+      )`);
+    }
+    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY po.created_at DESC';
     const result = await query(sql, params);
     res.json(result.rows);
