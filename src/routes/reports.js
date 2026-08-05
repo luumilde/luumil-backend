@@ -83,6 +83,68 @@ router.get('/payments-by-person', async (req, res) => {
   }
 });
 
+// Stock por categoría: piezas por bodega + piezas pendientes de recibir
+// (órdenes de compra vivas, no canceladas, no completas).
+router.get('/stock-by-category', async (req, res) => {
+  try {
+    const result = await query(`
+      WITH cats AS (
+        SELECT DISTINCT COALESCE(categories[1], 'Sin categoría') AS categoria FROM products
+      ),
+      stock AS (
+        SELECT
+          COALESCE(p.categories[1], 'Sin categoría') AS categoria,
+          l.name AS bodega,
+          COALESCE(SUM(
+            CASE WHEN sm.to_location_id = l.id THEN sm.quantity
+                 WHEN sm.from_location_id = l.id THEN -sm.quantity
+                 ELSE 0 END
+          ), 0) AS qty
+        FROM products p
+        CROSS JOIN inventory_locations l
+        LEFT JOIN stock_movements sm ON sm.product_id = p.id AND (sm.to_location_id = l.id OR sm.from_location_id = l.id)
+        WHERE l.is_active = TRUE
+        GROUP BY categoria, l.id, l.name
+      ),
+      stock_piv AS (
+        SELECT categoria,
+          SUM(CASE WHEN bodega = 'Bodega MX (CDMX)' THEN qty ELSE 0 END) AS bodega_mx,
+          SUM(CASE WHEN bodega = 'En tránsito (MX→DE)' THEN qty ELSE 0 END) AS en_transito,
+          SUM(CASE WHEN bodega = 'Bodega Munich' THEN qty ELSE 0 END) AS bodega_munich,
+          SUM(qty) AS total_en_bodega
+        FROM stock
+        GROUP BY categoria
+      ),
+      pending AS (
+        SELECT
+          COALESCE(p.categories[1], 'Sin categoría') AS categoria,
+          SUM(GREATEST(pol.quantity_ordered - pol.quantity_received, 0)) AS pendiente
+        FROM purchase_order_lines pol
+        JOIN purchase_orders po ON po.id = pol.purchase_order_id
+        JOIN products p ON p.id = pol.product_id
+        WHERE po.status != 'cancelled' AND pol.line_status != 'complete'
+        GROUP BY categoria
+      )
+      SELECT
+        c.categoria,
+        COALESCE(sp.bodega_mx, 0) AS bodega_mx,
+        COALESCE(sp.en_transito, 0) AS en_transito,
+        COALESCE(sp.bodega_munich, 0) AS bodega_munich,
+        COALESCE(sp.total_en_bodega, 0) AS total_en_bodega,
+        COALESCE(pe.pendiente, 0) AS pendiente,
+        COALESCE(sp.total_en_bodega, 0) + COALESCE(pe.pendiente, 0) AS gran_total
+      FROM cats c
+      LEFT JOIN stock_piv sp ON sp.categoria = c.categoria
+      LEFT JOIN pending pe ON pe.categoria = c.categoria
+      ORDER BY c.categoria
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to run report' });
+  }
+});
+
 // Productos en proceso de compra (en pedidos activos)
 router.get('/products-in-progress', async (req, res) => {
   try {
