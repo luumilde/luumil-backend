@@ -101,17 +101,18 @@ router.post('/transfers', async (req, res) => {
 });
 
 // POST /api/intercompany/transfers/bulk — setup general: aplica el mismo % de
-// incremento sobre el precio de compra (MXN) a varios productos a la vez, con
-// la misma cantidad, ubicación y fecha para todo el lote. Calcula el precio en
-// MXN y en EUR (con el tipo de cambio vigente de Pricing > Configuración) y
-// registra una transferencia intercompany por cada producto seleccionado.
+// incremento sobre el precio de compra (MXN) a varios productos a la vez,
+// cada uno con su propia cantidad (la ubicación y fecha sí son las mismas
+// para todo el lote). Calcula el precio en MXN y en EUR (con el tipo de
+// cambio vigente de Pricing > Configuración) y registra una transferencia
+// intercompany por cada producto seleccionado.
 router.post('/transfers/bulk', async (req, res) => {
   try {
-    const { productIds, pct, quantity, locationId, transferDate, notes } = req.body;
-    if (!Array.isArray(productIds) || !productIds.length) return res.status(400).json({ error: 'Selecciona al menos un producto' });
+    const { items, pct, locationId, transferDate, notes } = req.body;
+    const list = Array.isArray(items) ? items.filter(it => it.productId && parseFloat(it.quantity) > 0) : [];
+    if (!list.length) return res.status(400).json({ error: 'Selecciona al menos un producto con cantidad válida' });
     const pctNum = parseFloat(pct);
     if (pct === undefined || pct === null || isNaN(pctNum)) return res.status(400).json({ error: 'El % es requerido' });
-    if (!quantity || quantity <= 0) return res.status(400).json({ error: 'La cantidad debe ser mayor a 0' });
     if (!locationId) return res.status(400).json({ error: 'La ubicación de los productos es requerida' });
 
     const settings = await getGlobalSettings();
@@ -120,8 +121,8 @@ router.post('/transfers/bulk', async (req, res) => {
     }
 
     const created = [];
-    for (const productId of productIds) {
-      const prod = await query('SELECT purchase_price_mxn FROM products WHERE id=$1', [productId]);
+    for (const item of list) {
+      const prod = await query('SELECT purchase_price_mxn FROM products WHERE id=$1', [item.productId]);
       if (!prod.rows.length) continue;
       const purchasePrice = parseFloat(prod.rows[0].purchase_price_mxn) || 0;
       const costoMxn = purchasePrice * (1 + pctNum / 100);
@@ -129,7 +130,7 @@ router.post('/transfers/bulk', async (req, res) => {
       const r = await query(
         `INSERT INTO intercompany_transfers (product_id, quantity, price_eur, location_id, transfer_date, notes, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [productId, quantity, round2(costoEur), locationId, transferDate || null, notes || null, req.user?.userName]
+        [item.productId, parseFloat(item.quantity), round2(costoEur), locationId, transferDate || null, notes || null, req.user?.userName]
       );
       created.push({ ...r.rows[0], costoMxn: round2(costoMxn) });
     }

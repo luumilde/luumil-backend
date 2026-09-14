@@ -1,7 +1,10 @@
 import express from 'express';
 import { query } from '../db/pool.js';
+import { getGlobalSettings } from './pricing.js';
+import { computeFairPricing } from './fairs.js';
 
 const router = express.Router();
+const round2 = n => Math.round(n * 100) / 100;
 
 // Productos por proveedor
 router.get('/products-by-supplier', async (req, res) => {
@@ -169,6 +172,121 @@ router.get('/products-in-progress', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to run report' });
+  }
+});
+
+// Catálogo completo de productos para descargar — junta info de producto,
+// proveedor (incl. ciudad/estado/contacto), inventario por bodega, precios
+// (compra, intercompany, base general, por feria), medidas/peso y foto.
+// Solo incluye productos que ya pasaron por al menos una orden de compra
+// (mismo criterio de "disponible" que Pricing e Intercompany).
+router.get('/product-catalog', async (req, res) => {
+  try {
+    const settings = await getGlobalSettings();
+    const totalPct = settings.packagingShippingPct + settings.marketingPct + settings.otherCostsPct;
+
+    const productsRes = await query(`
+      SELECT p.id, p.sku, p.name_es, p.name_de, p.categories, p.materials,
+        p.height_cm, p.width_cm, p.depth_cm, p.weight_g, p.photos,
+        p.purchase_price_mxn, p.hs_code, p.regulatory_status,
+        s.name AS supplier_name, s.city AS supplier_city, s.state AS supplier_state,
+        s.contact_name AS supplier_contact, s.whatsapp AS supplier_whatsapp, s.email AS supplier_email,
+        ic.price_eur AS intercompany_price_eur,
+        (SELECT STRING_AGG(DISTINCT po.folio, ', ' ORDER BY po.folio)
+         FROM purchase_order_lines pol JOIN purchase_orders po ON po.id = pol.purchase_order_id
+         WHERE pol.product_id = p.id AND po.status != 'cancelled') AS ordenes_compra
+      FROM products p
+      LEFT JOIN suppliers s ON s.id = p.supplier_id
+      LEFT JOIN LATERAL (
+        SELECT price_eur FROM intercompany_transfers
+        WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
+      ) ic ON true
+      WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
+      ORDER BY p.name_es
+    `);
+
+    // Stock por producto x bodega (mismas 3 ubicaciones que el resto de la app)
+    const stockRes = await query(`SELECT product_id, location_name, qty FROM current_stock`);
+    const stockByProduct = {};
+    for (const row of stockRes.rows) {
+      if (!stockByProduct[row.product_id]) stockByProduct[row.product_id] = {};
+      stockByProduct[row.product_id][row.location_name] = parseFloat(row.qty) || 0;
+    }
+
+    // Precio por feria: se recalcula con la misma lógica prorrateada que usa
+    // Pricing → Ferias (computeFairPricing), una vez por feria, y se arma un
+    // resumen en texto por producto (puede estar en varias ferias a la vez).
+    const fairsRes = await query(`SELECT id, name FROM fairs ORDER BY name`);
+    const fairPriceByProduct = {};
+    for (const fair of fairsRes.rows) {
+      const computed = await computeFairPricing(fair.id);
+      if (!computed) continue;
+      for (const fp of computed.products) {
+        if (!fairPriceByProduct[fp.id]) fairPriceByProduct[fp.id] = [];
+        const eur = fp.precioCalculadoEur != null ? `€${fp.precioCalculadoEur}` : '—';
+        fairPriceByProduct[fp.id].push(`${fair.name}: ${eur}`);
+      }
+    }
+
+    const photoUrl = (photos) => {
+      for (const v of Object.values(photos || {})) {
+        if (v && typeof v === 'object' && v.url) return v.url;
+      }
+      return '';
+    };
+
+    const rows = productsRes.rows.map(p => {
+      const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
+      const isIntercompany = p.intercompany_price_eur != null;
+      const costoMxn = isIntercompany
+        ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
+        : purchasePrice * (1 + totalPct / 100);
+      const precioBaseMxn = costoMxn * settings.generalMultiplier;
+      const precioBaseEur = settings.exchangeRate > 0 ? precioBaseMxn / settings.exchangeRate : null;
+      const stock = stockByProduct[p.id] || {};
+      const bodegaMx = stock['Bodega MX (CDMX)'] || 0;
+      const enTransito = stock['En tránsito (MX→DE)'] || 0;
+      const bodegaMunich = stock['Bodega Munich'] || 0;
+
+      return {
+        sku: p.sku,
+        descripcion: p.name_es,
+        descripcion_de: p.name_de || '',
+        proveedor: p.supplier_name || '',
+        ordenes_compra: p.ordenes_compra || '',
+        precio_compra_mxn: purchasePrice,
+        bodega_mx: bodegaMx,
+        en_transito: enTransito,
+        bodega_munich: bodegaMunich,
+        total_bodega: round2(bodegaMx + enTransito + bodegaMunich),
+        propietario: isIntercompany ? 'Luumil Alemania' : 'Luumil México',
+        precio_intercompany_eur: isIntercompany ? round2(parseFloat(p.intercompany_price_eur)) : '',
+        precio_intercompany_mxn: isIntercompany ? round2(parseFloat(p.intercompany_price_eur) * settings.exchangeRate) : '',
+        precio_base_mxn: round2(precioBaseMxn),
+        precio_base_eur: precioBaseEur != null ? round2(precioBaseEur) : '',
+        origen_costo: isIntercompany ? 'Intercompany' : 'Proveedor',
+        precio_ferias: (fairPriceByProduct[p.id] || []).join(' | '),
+        alto_cm: p.height_cm ?? '',
+        ancho_cm: p.width_cm ?? '',
+        profundidad_cm: p.depth_cm ?? '',
+        peso_g: p.weight_g ?? '',
+        foto_url: photoUrl(p.photos),
+        ciudad_proveedor: p.supplier_city || '',
+        estado_proveedor: p.supplier_state || '',
+        contacto_proveedor: p.supplier_contact || '',
+        whatsapp_proveedor: p.supplier_whatsapp || '',
+        email_proveedor: p.supplier_email || '',
+        categorias: (p.categories || []).join(';'),
+        materiales: (p.materials || []).join(';'),
+        hs_code: p.hs_code || '',
+        estado_regulatorio: p.regulatory_status || '',
+      };
+    });
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to build product catalog report' });
   }
 });
 

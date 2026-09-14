@@ -135,14 +135,15 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// GET /api/fairs/:id/products — productos asignados, con precio calculado
-// prorrateando el costo total de la feria entre el total de PIEZAS asignadas
-// (no entre el número de SKUs)
-router.get('/:id/products', async (req, res) => {
-  try {
-    const fairRes = await query(`SELECT * FROM fairs WHERE id=$1`, [req.params.id]);
-    if (!fairRes.rows.length) return res.status(404).json({ error: 'Fair not found' });
-    const fair = fairRes.rows[0];
+// Productos asignados a una feria con precio calculado, prorrateando el costo
+// total de la feria entre el total de PIEZAS asignadas (no entre el número de
+// SKUs). Factorizado como función exportable para que reports.js pueda reusar
+// exactamente el mismo cálculo al armar el reporte de catálogo (columna
+// "precio feria") sin duplicar la lógica de prorrateo.
+export async function computeFairPricing(fairId) {
+  const fairRes = await query(`SELECT * FROM fairs WHERE id=$1`, [fairId]);
+  if (!fairRes.rows.length) return null;
+  const fair = fairRes.rows[0];
 
     const settings = await getGlobalSettings();
     const basePct = settings.packagingShippingPct + settings.marketingPct + settings.otherCostsPct;
@@ -165,7 +166,7 @@ router.get('/:id/products', async (req, res) => {
       ) ic ON true
       WHERE fp.fair_id = $1
       ORDER BY p.name_es
-    `, [req.params.id, settings.generalMultiplier]);
+    `, [fairId, settings.generalMultiplier]);
 
     const productCount = assigned.rows.length;
     const totalQuantity = assigned.rows.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);
@@ -214,10 +215,18 @@ router.get('/:id/products', async (req, res) => {
       };
     });
 
-    res.json({
-      fair: { ...fair, productCount, totalQuantity, fairCostPerUnitEur: round2(fairCostPerUnitEur) },
-      products,
-    });
+  return {
+    fair: { ...fair, productCount, totalQuantity, fairCostPerUnitEur: round2(fairCostPerUnitEur) },
+    products,
+  };
+}
+
+// GET /api/fairs/:id/products — productos asignados, con precio calculado
+router.get('/:id/products', async (req, res) => {
+  try {
+    const result = await computeFairPricing(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Fair not found' });
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch fair products' });
