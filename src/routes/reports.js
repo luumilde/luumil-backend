@@ -194,7 +194,15 @@ router.get('/product-catalog', async (req, res) => {
         ic.price_eur AS intercompany_price_eur,
         (SELECT STRING_AGG(DISTINCT po.folio, ', ' ORDER BY po.folio)
          FROM purchase_order_lines pol JOIN purchase_orders po ON po.id = pol.purchase_order_id
-         WHERE pol.product_id = p.id AND po.status != 'cancelled') AS ordenes_compra
+         WHERE pol.product_id = p.id AND po.status != 'cancelled') AS ordenes_compra,
+        (SELECT STRING_AGG(
+           fd.folio || CASE WHEN fd.amount_mxn IS NOT NULL THEN ' ($' || fd.amount_mxn || ')' ELSE '' END,
+           ', ' ORDER BY fd.doc_date NULLS LAST
+         )
+         FROM purchase_order_lines pol
+         JOIN purchase_orders po ON po.id = pol.purchase_order_id
+         JOIN fiscal_documents fd ON fd.purchase_order_id = po.id
+         WHERE pol.product_id = p.id AND fd.doc_type = 'recibo' AND fd.status != 'cancelado') AS recibo_info
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN LATERAL (
@@ -254,6 +262,7 @@ router.get('/product-catalog', async (req, res) => {
         descripcion_de: p.name_de || '',
         proveedor: p.supplier_name || '',
         ordenes_compra: p.ordenes_compra || '',
+        recibo_simplificado: p.recibo_info || '',
         precio_compra_mxn: purchasePrice,
         bodega_mx: bodegaMx,
         en_transito: enTransito,
