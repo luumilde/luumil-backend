@@ -13,6 +13,8 @@ import preordersRoutes from './routes/preorders.js';
 import inventoryRoutes from './routes/inventory.js';
 import pricingRoutes from './routes/pricing.js';
 import fairsRoutes from './routes/fairs.js';
+import intercompanyRoutes from './routes/intercompany.js';
+import salesRoutes from './routes/sales.js';
 
 dotenv.config();
 
@@ -41,6 +43,8 @@ app.use('/api/preorders', requireAuth, preordersRoutes);
 app.use('/api/inventory', requireAuth, inventoryRoutes);
 app.use('/api/pricing', requireAuth, pricingRoutes);
 app.use('/api/fairs', requireAuth, fairsRoutes);
+app.use('/api/intercompany', requireAuth, intercompanyRoutes);
+app.use('/api/sales', requireAuth, salesRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.message);

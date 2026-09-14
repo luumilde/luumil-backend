@@ -401,10 +401,10 @@ router.post('/:id/duplicate', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const newOrder = await query(
       `INSERT INTO purchase_orders (folio, supplier_id, order_date, status, iva_pct, advance_pct,
-         delivery_place, instructions, internal_notes, created_by)
+         delivery_place, instructions, internal_notes, is_consignment, created_by)
        VALUES ((SELECT CONCAT('PC-', LPAD((current_value+1)::text,4,'0')) FROM sequences WHERE prefix='PC'),
-         $1,$2,'draft',$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [o.supplier_id, today, o.iva_pct, o.advance_pct, o.delivery_place, o.instructions, o.internal_notes, req.user?.userName]
+         $1,$2,'draft',$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [o.supplier_id, today, o.iva_pct, o.advance_pct, o.delivery_place, o.instructions, o.internal_notes, o.is_consignment||false, req.user?.userName]
     );
     await query(`UPDATE sequences SET current_value=current_value+1 WHERE prefix='PC'`);
     const newId = newOrder.rows[0].id;

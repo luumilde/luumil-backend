@@ -91,9 +91,14 @@ router.get('/products', async (req, res) => {
     // Solo productos que ya están en al menos una orden de compra
     let sql = `
       SELECT p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur,
-        p.categories, s.id AS supplier_id, s.name AS supplier_name
+        p.categories, s.id AS supplier_id, s.name AS supplier_name,
+        ic.price_eur AS intercompany_price_eur
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
+      LEFT JOIN LATERAL (
+        SELECT price_eur FROM intercompany_transfers
+        WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
+      ) ic ON true
       WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
     `;
     const conditions = [];
@@ -108,18 +113,27 @@ router.get('/products', async (req, res) => {
     const round2 = n => Math.round(n * 100) / 100;
     const rows = result.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
-      // Costo: precio de compra + costos generales (embalaje, ferias, marketing, otros). No incluye el multiplicador.
-      const costoMxn = purchasePrice * (1 + totalPct / 100);
+      const isIntercompany = p.intercompany_price_eur != null;
+      // Costo: si el producto ya fue transferido de Luumil México a Luumil Alemania
+      // (existe una transferencia intercompany), el costo es directamente ese precio
+      // — ya incluye lo que México quiso cubrir, no se le vuelve a aplicar % de
+      // embalaje/envío/marketing/otros. Si no, el cálculo de siempre desde el proveedor.
+      const costoEur = isIntercompany
+        ? parseFloat(p.intercompany_price_eur)
+        : (settings.exchangeRate > 0 ? (purchasePrice * (1 + totalPct / 100)) / settings.exchangeRate : null);
+      const costoMxn = isIntercompany
+        ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
+        : purchasePrice * (1 + totalPct / 100);
       // Precio calculado: el costo con el multiplicador general de rentabilidad aplicado
       // (un solo multiplicador para todos los productos — el multiplicador por
       // categoría ahora se configura por feria, no aquí).
       const precioCalculadoMxn = costoMxn * settings.generalMultiplier;
-      const costoEur = settings.exchangeRate > 0 ? costoMxn / settings.exchangeRate : null;
       const precioCalculadoEur = settings.exchangeRate > 0 ? precioCalculadoMxn / settings.exchangeRate : null;
       return {
         ...p,
         totalPct,
         multiplier: settings.generalMultiplier,
+        costSource: isIntercompany ? 'intercompany' : 'supplier',
         costoMxn: round2(costoMxn),
         costoEur: costoEur != null ? round2(costoEur) : null,
         precioCalculadoMxn: round2(precioCalculadoMxn),

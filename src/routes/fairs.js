@@ -153,11 +153,16 @@ router.get('/:id/products', async (req, res) => {
       SELECT fp.product_id AS assignment_product_id, fp.sale_price_eur AS fair_sale_price_eur,
         fp.quantity,
         p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
-        COALESCE(fm.multiplier, $2) AS multiplier
+        COALESCE(fm.multiplier, $2) AS multiplier,
+        ic.price_eur AS intercompany_price_eur
       FROM fair_products fp
       JOIN products p ON p.id = fp.product_id
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN fair_category_multipliers fm ON fm.fair_id = fp.fair_id AND fm.category = COALESCE(p.categories[1], 'Sin categoría')
+      LEFT JOIN LATERAL (
+        SELECT price_eur FROM intercompany_transfers
+        WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
+      ) ic ON true
       WHERE fp.fair_id = $1
       ORDER BY p.name_es
     `, [req.params.id, settings.generalMultiplier]);
@@ -176,8 +181,13 @@ router.get('/:id/products', async (req, res) => {
       // Precio base: el precio que ya está decidido en Pricing → General para
       // este producto. Prioridad: el "Precio EUR asignado" (confirmado a mano);
       // si no se ha confirmado ninguno, se usa el precio calculado automático de
-      // General (mismo costo + multiplicador general que se ve ahí).
-      const generalCalculadoMxn = purchasePrice * (1 + basePct / 100) * settings.generalMultiplier;
+      // General — que a su vez usa el precio intercompany como costo si el
+      // producto ya fue transferido a Luumil Alemania, o el costo del proveedor si no.
+      const isIntercompany = p.intercompany_price_eur != null;
+      const costoBaseGeneralMxn = isIntercompany
+        ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
+        : purchasePrice * (1 + basePct / 100);
+      const generalCalculadoMxn = costoBaseGeneralMxn * settings.generalMultiplier;
       const generalCalculadoEur = settings.exchangeRate > 0 ? generalCalculadoMxn / settings.exchangeRate : null;
       const assignedEur = p.sale_price_eur != null ? parseFloat(p.sale_price_eur) : null;
       const basePriceSource = assignedEur != null ? 'assigned' : 'calculated';
@@ -193,6 +203,7 @@ router.get('/:id/products', async (req, res) => {
         ...p,
         fairCostPerUnitEur: round2(fairCostPerUnitEur),
         basePriceSource,
+        costSource: isIntercompany ? 'intercompany' : 'supplier',
         basePriceMxn: basePriceMxn != null ? round2(basePriceMxn) : null,
         basePriceEur: basePriceEur != null ? round2(basePriceEur) : null,
         totalMxn: totalMxn != null ? round2(totalMxn) : null,
