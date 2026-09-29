@@ -209,7 +209,11 @@ router.get('/product-catalog', async (req, res) => {
         SELECT price_eur FROM intercompany_transfers
         WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
       ) ic ON true
-      WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
+      WHERE EXISTS (
+        SELECT 1 FROM purchase_order_lines pol
+        JOIN purchase_orders po ON po.id = pol.purchase_order_id
+        WHERE pol.product_id = p.id AND po.status != 'cancelled'
+      )
       ORDER BY p.name_es
     `);
 
@@ -290,7 +294,7 @@ router.get('/product-catalog', async (req, res) => {
         hs_code: p.hs_code || '',
         estado_regulatorio: p.regulatory_status || '',
       };
-    });
+    }).filter(r => r.total_bodega > 0); // solo productos con inventario disponible (>0 piezas)
 
     res.json(rows);
   } catch (err) {
