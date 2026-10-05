@@ -155,7 +155,8 @@ export async function computeFairPricing(fairId) {
         fp.quantity,
         p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
         COALESCE(fm.multiplier, $2) AS multiplier,
-        ic.price_eur AS intercompany_price_eur
+        ic.price_eur AS intercompany_price_eur,
+        COALESCE(stk.qty, 0) AS available_qty
       FROM fair_products fp
       JOIN products p ON p.id = fp.product_id
       LEFT JOIN suppliers s ON s.id = p.supplier_id
@@ -164,6 +165,9 @@ export async function computeFairPricing(fairId) {
         SELECT price_eur FROM intercompany_transfers
         WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
       ) ic ON true
+      LEFT JOIN LATERAL (
+        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id
+      ) stk ON true
       WHERE fp.fair_id = $1
       ORDER BY p.name_es
     `, [fairId, settings.generalMultiplier]);
