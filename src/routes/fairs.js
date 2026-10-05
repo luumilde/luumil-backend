@@ -27,9 +27,13 @@ router.get('/', async (req, res) => {
 router.get('/assignable-products', async (req, res) => {
   try {
     const r = await query(`
-      SELECT p.id, p.sku, p.name_es, p.categories, p.photos, p.purchase_price_mxn, s.name AS supplier_name
+      SELECT p.id, p.sku, p.name_es, p.categories, p.photos, p.purchase_price_mxn, s.name AS supplier_name,
+        COALESCE(stk.qty, 0) AS available_qty
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
+      LEFT JOIN LATERAL (
+        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id
+      ) stk ON true
       WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
          OR EXISTS (SELECT 1 FROM current_stock cs WHERE cs.product_id = p.id)
       ORDER BY p.name_es
