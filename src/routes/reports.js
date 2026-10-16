@@ -202,7 +202,11 @@ router.get('/product-catalog', async (req, res) => {
          FROM purchase_order_lines pol
          JOIN purchase_orders po ON po.id = pol.purchase_order_id
          JOIN fiscal_documents fd ON fd.purchase_order_id = po.id
-         WHERE pol.product_id = p.id AND fd.doc_type = 'recibo' AND fd.status != 'cancelado') AS recibo_info
+         WHERE pol.product_id = p.id AND fd.doc_type = 'recibo' AND fd.status != 'cancelado') AS recibo_info,
+        (SELECT STRING_AGG(DISTINCT sm.reference, ', ' ORDER BY sm.reference)
+         FROM stock_movements sm
+         WHERE sm.product_id = p.id AND sm.movement_type = 'transfer'
+           AND sm.reference IS NOT NULL AND sm.reference != '') AS referencias_traslado
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN LATERAL (
@@ -267,6 +271,7 @@ router.get('/product-catalog', async (req, res) => {
         proveedor: p.supplier_name || '',
         ordenes_compra: p.ordenes_compra || '',
         recibo_simplificado: p.recibo_info || '',
+        referencia_traslado: p.referencias_traslado || '',
         precio_compra_mxn: purchasePrice,
         bodega_mx: bodegaMx,
         en_transito: enTransito,
