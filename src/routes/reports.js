@@ -206,7 +206,16 @@ router.get('/product-catalog', async (req, res) => {
         (SELECT STRING_AGG(DISTINCT sm.reference, ', ' ORDER BY sm.reference)
          FROM stock_movements sm
          WHERE sm.product_id = p.id AND sm.movement_type = 'transfer'
-           AND sm.reference IS NOT NULL AND sm.reference != '') AS referencias_traslado
+           AND sm.reference IS NOT NULL AND sm.reference != '') AS referencias_traslado,
+        (SELECT STRING_AGG(sub.reference || ' (' || sub.qty || ')', ', ' ORDER BY sub.reference)
+         FROM (
+           SELECT COALESCE(NULLIF(sm.reference, ''), 'sin referencia') AS reference, SUM(sm.quantity)::numeric AS qty
+           FROM stock_movements sm
+           WHERE sm.product_id = p.id AND sm.movement_type = 'transfer'
+           GROUP BY 1
+         ) sub) AS detalle_traslados,
+        (SELECT COALESCE(SUM(sm.quantity), 0) FROM stock_movements sm
+         WHERE sm.product_id = p.id AND sm.movement_type = 'transfer') AS cantidad_trasladada
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN LATERAL (
@@ -272,6 +281,8 @@ router.get('/product-catalog', async (req, res) => {
         ordenes_compra: p.ordenes_compra || '',
         recibo_simplificado: p.recibo_info || '',
         referencia_traslado: p.referencias_traslado || '',
+        cantidad_enviada: parseFloat(p.cantidad_trasladada) || 0,
+        detalle_envios: p.detalle_traslados || '',
         precio_compra_mxn: purchasePrice,
         bodega_mx: bodegaMx,
         en_transito: enTransito,
