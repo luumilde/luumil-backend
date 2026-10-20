@@ -28,11 +28,14 @@ router.get('/assignable-products', async (req, res) => {
   try {
     const r = await query(`
       SELECT p.id, p.sku, p.name_es, p.categories, p.photos, p.purchase_price_mxn, s.name AS supplier_name,
-        COALESCE(stk.qty, 0) AS available_qty
+        COALESCE(stk.qty, 0) AS available_qty,
+        COALESCE(stk.locations, '[]'::json) AS stock_locations
       FROM products p
       LEFT JOIN suppliers s ON s.id = p.supplier_id
       LEFT JOIN LATERAL (
-        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id
+        SELECT SUM(qty)::int AS qty,
+          json_agg(json_build_object('location', location_name, 'qty', qty)) AS locations
+        FROM current_stock WHERE product_id = p.id
       ) stk ON true
       WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
          OR EXISTS (SELECT 1 FROM current_stock cs WHERE cs.product_id = p.id)
@@ -273,6 +276,22 @@ router.post('/:id/products/bulk', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to bulk assign products' });
+  }
+});
+
+// POST /api/fairs/:id/products/bulk-remove — sacar varios productos de la feria de un jalón
+router.post('/:id/products/bulk-remove', async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    if (!Array.isArray(productIds) || !productIds.length) return res.status(400).json({ error: 'productIds es requerido' });
+    const r = await query(
+      `DELETE FROM fair_products WHERE fair_id=$1 AND product_id = ANY($2::int[])`,
+      [req.params.id, productIds]
+    );
+    res.json({ ok: true, removed: r.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to bulk remove products' });
   }
 });
 
