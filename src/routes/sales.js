@@ -114,6 +114,8 @@ router.get('/:id', async (req, res) => {
 // (no permite vender más de lo que hay en la bodega de esa entidad), calcula
 // IVA/MwSt sobre el subtotal, genera folio, y descuenta el inventario vendido.
 router.post('/', async (req, res) => {
+  let createdOrderId = null;
+  let createdFolio = null;
   try {
     const b = req.body;
     const entity = b.entity === 'MX' ? 'MX' : 'DE';
@@ -149,6 +151,8 @@ router.post('/', async (req, res) => {
       b.paymentMethod || 'cash', b.notes || null, req.user?.userName,
     ]);
     const order = orderRes.rows[0];
+    createdOrderId = order.id;
+    createdFolio = folio;
 
     const loc = await query('SELECT id FROM inventory_locations WHERE name=$1', [locationName]);
     for (const l of lines) {
@@ -173,6 +177,13 @@ router.post('/', async (req, res) => {
     res.status(201).json(order);
   } catch (err) {
     console.error(err);
+    // Si el candado de stock se dispara a medio crear la venta (captura simultánea),
+    // deshacer lo ya guardado para no dejar una orden a medias.
+    if (createdOrderId) {
+      await query(`DELETE FROM stock_movements WHERE movement_type='sale' AND reference=$1`, [createdFolio]).catch(() => {});
+      await query('DELETE FROM sales_orders WHERE id=$1', [createdOrderId]).catch(() => {});
+    }
+    if (err.code === 'P0001') return res.status(400).json({ error: err.message.replace(/^error:\s*/i, '') });
     res.status(500).json({ error: 'Failed to create sales order' });
   }
 });

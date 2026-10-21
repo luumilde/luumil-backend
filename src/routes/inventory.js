@@ -155,7 +155,11 @@ router.post('/movements', async (req, res) => {
       RETURNING *
     `, [productId, fromLocationId||null, toLocationId, quantity, movementType||'adjustment', reference||null, notes||null, movementDate||new Date().toISOString().split('T')[0], req.user?.userName]);
     res.status(201).json(r.rows[0]);
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) {
+    // El candado de la base de datos (stock insuficiente) responde como error de captura, no 500
+    if (e.code === 'P0001') return res.status(400).json({ error: e.message.replace(/^error:\s*/i, '') });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // GET /api/inventory/all-stock — stock de todos los productos incluyendo los en cero (para ajuste inicial)
@@ -208,7 +212,13 @@ router.post('/sync-from-orders', async (req, res) => {
         pol.product_id, pol.quantity_ordered
       FROM purchase_orders po
       JOIN purchase_order_lines pol ON pol.purchase_order_id = po.id
-      WHERE po.status = 'paid'
+      WHERE (
+          po.status = 'paid'
+          -- Consignación: la mercancía ya está físicamente en la bodega aunque la
+          -- orden no esté pagada (se paga conforme se vende), así que también
+          -- debe entrar al inventario.
+          OR (po.is_consignment = TRUE AND po.status NOT IN ('draft','cancelled'))
+        )
         AND pol.product_id IS NOT NULL
         AND pol.quantity_ordered > 0
         AND NOT EXISTS (
