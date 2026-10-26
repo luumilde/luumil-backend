@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../db/pool.js';
-import { getGlobalSettings, getCategoryList } from './pricing.js';
+import { getGlobalSettings, getCategoryList, getShippingUnitCostMap } from './pricing.js';
 
 const router = express.Router();
 const DIST_MODES = ['per_piece', 'by_price', 'none'];
@@ -202,12 +202,17 @@ export async function computeFairPricing(fairId) {
     // Prioridad: el "Precio EUR asignado" (confirmado a mano); si no hay, el precio
     // calculado automático de General — que usa el precio intercompany como costo si
     // el producto ya fue transferido a Luumil Alemania, o el costo del proveedor si no.
+    const shipMap = await getShippingUnitCostMap();
     const baseOf = (p) => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
       const isIntercompany = p.intercompany_price_eur != null;
+      const shipUnit = shipMap.get(p.id);
       const costoBaseGeneralMxn = isIntercompany
         ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
-        : purchasePrice * (1 + basePct / 100);
+        : (shipUnit != null
+            // Envío fijo por pieza (lote de maletas/DHL) en lugar del % de embalaje/envío
+            ? purchasePrice * (1 + (settings.marketingPct + settings.otherCostsPct) / 100) + shipUnit * settings.exchangeRate
+            : purchasePrice * (1 + basePct / 100));
       const generalCalculadoMxn = costoBaseGeneralMxn * settings.generalMultiplier;
       const generalCalculadoEur = settings.exchangeRate > 0 ? generalCalculadoMxn / settings.exchangeRate : null;
       const assignedEur = p.sale_price_eur != null ? parseFloat(p.sale_price_eur) : null;
