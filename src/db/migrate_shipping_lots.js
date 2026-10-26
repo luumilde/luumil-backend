@@ -25,6 +25,7 @@ async function migrate() {
       unit_cost_eur NUMERIC NOT NULL
     )
   `);
+  await query(`ALTER TABLE shipping_lots ADD COLUMN IF NOT EXISTS price_pct NUMERIC NOT NULL DEFAULT 0`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shipping_lot_items_product ON shipping_lot_items(product_id)`);
   console.log('✅ shipping_lots y shipping_lot_items listos');
   process.exit(0);

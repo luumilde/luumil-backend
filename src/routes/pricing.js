@@ -51,25 +51,38 @@ export async function getShippingUnitCostMap() {
 
 // Reparte un costo total entre las piezas que hay en Bodega Munich y que todavía
 // no tienen costo de envío asignado (stock en Munich − piezas ya asignadas a lotes).
-//  - weight:    proporcional al peso (g) de cada pieza. A las piezas sin peso se les
-//               asigna el peso promedio de las que sí lo tienen (respaldo); si ninguna
-//               tiene peso, se reparte igual por pieza.
+//  - weight:    proporcional al peso (g) de cada pieza. Sin peso → peso volumétrico de sus
+//               medidas; sin medidas → promedio de las demás. Si ninguna tiene peso ni
+//               medidas, se reparte igual por pieza.
 //  - per_piece: mismo monto por pieza.
 // `categories` (opcional): solo las piezas de esas categorías absorben el costo.
-async function allocateShipping(totalCostEur, method, categories) {
+async function allocateShipping(totalCostEur, method, categories, pricePctRaw) {
+  const pricePct = Math.min(100, Math.max(0, parseFloat(pricePctRaw) || 0));
+  const settings = await getGlobalSettings();
+  const baseCostPct = settings.packagingShippingPct + settings.marketingPct + settings.otherCostsPct;
   const cats = Array.isArray(categories) && categories.length ? categories.map(String) : null;
   const r = await query(`
-    SELECT p.id AS product_id, p.sku, p.name_es, p.weight_g,
+    SELECT p.id AS product_id, p.sku, p.name_es, p.weight_g, p.height_cm, p.width_cm, p.depth_cm, p.purchase_price_mxn, p.sale_price_eur,
+      ic.price_eur AS intercompany_price_eur,
       (mun.qty - COALESCE(al.qty, 0))::int AS quantity
     FROM products p
     JOIN LATERAL (SELECT COALESCE(SUM(qty),0)::int AS qty FROM current_stock
                   WHERE product_id = p.id AND location_name = 'Bodega Munich') mun ON true
     LEFT JOIN LATERAL (SELECT SUM(quantity)::int AS qty FROM shipping_lot_items WHERE product_id = p.id) al ON true
+    LEFT JOIN LATERAL (SELECT price_eur FROM intercompany_transfers WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1) ic ON true
     WHERE mun.qty - COALESCE(al.qty, 0) > 0
       AND ($1::text[] IS NULL OR COALESCE(p.categories[1], 'Sin categoría') = ANY($1::text[]))
     ORDER BY p.sku
   `, [cats]);
-  const rows = r.rows.map(x => ({ ...x, weight: parseFloat(x.weight_g) > 0 ? parseFloat(x.weight_g) : null }));
+  // Peso efectivo de cada pieza: su peso real (g); si no lo tiene, el peso volumétrico
+  // de sus medidas (alto × ancho × profundidad en cm ÷ 5 = gramos equivalentes, el
+  // estándar de couriers); si tampoco tiene medidas, el promedio de las demás.
+  const rows = r.rows.map(x => {
+    const real = parseFloat(x.weight_g) > 0 ? parseFloat(x.weight_g) : null;
+    const h = parseFloat(x.height_cm), w = parseFloat(x.width_cm), d = parseFloat(x.depth_cm);
+    const vol = h > 0 && w > 0 && d > 0 ? (h * w * d) / 5 : null;
+    return { ...x, weight: real ?? vol, weightSource: real != null ? 'weight' : (vol != null ? 'volume' : 'avg') };
+  });
   const totalPieces = rows.reduce((s, x) => s + x.quantity, 0);
   const weighted = rows.filter(x => x.weight != null);
   const weightedPieces = weighted.reduce((s, x) => s + x.quantity, 0);
@@ -77,12 +90,41 @@ async function allocateShipping(totalCostEur, method, categories) {
   const useWeight = method === 'weight' && avgWeight != null;
   const effW = (x) => useWeight ? (x.weight != null ? x.weight : avgWeight) : 1;
   const denom = rows.reduce((s, x) => s + effW(x) * x.quantity, 0);
-  const items = rows.map(x => ({
-    product_id: x.product_id, sku: x.sku, name_es: x.name_es, quantity: x.quantity,
-    weight_g: x.weight, missing_weight: x.weight == null,
-    unit_cost_eur: denom > 0 ? totalCostEur * effW(x) / denom : 0,
-  }));
-  return { items, totalPieces, missingWeight: rows.filter(x => x.weight == null).length, usedMethod: useWeight ? 'weight' : 'per_piece' };
+
+  // Precio base (EUR) de cada producto, SIN envío (para no ser circular): el "Precio EUR
+  // asignado" si existe; si no, el calculado de General (costo con %, o precio
+  // intercompany, × multiplicador general).
+  const baseEurOf = (x) => {
+    if (x.sale_price_eur != null) return parseFloat(x.sale_price_eur);
+    if (settings.exchangeRate <= 0) return null;
+    const costMxn = x.intercompany_price_eur != null
+      ? parseFloat(x.intercompany_price_eur) * settings.exchangeRate
+      : (parseFloat(x.purchase_price_mxn) || 0) * (1 + baseCostPct / 100);
+    const eur = costMxn * settings.generalMultiplier / settings.exchangeRate;
+    return eur > 0 ? eur : null;
+  };
+  rows.forEach(x => { x.baseEur = baseEurOf(x); });
+  const priced = rows.filter(x => x.baseEur != null);
+  const pricedPieces = priced.reduce((s, x) => s + x.quantity, 0);
+  const avgBase = pricedPieces > 0 ? priced.reduce((s, x) => s + x.baseEur * x.quantity, 0) / pricedPieces : null;
+  const effP = (x) => x.baseEur != null ? x.baseEur : avgBase;
+  const priceDenom = avgBase != null ? rows.reduce((s, x) => s + effP(x) * x.quantity, 0) : 0;
+  // Mezcla: (100 − pricePct)% del costo por peso/volumen y pricePct% por precio base.
+  const mixPrice = priceDenom > 0 ? pricePct / 100 : 0;
+
+  const items = rows.map(x => {
+    const physShare = denom > 0 ? effW(x) / denom : 0;
+    const priceShare = priceDenom > 0 ? effP(x) / priceDenom : 0;
+    return {
+      product_id: x.product_id, sku: x.sku, name_es: x.name_es, quantity: x.quantity,
+      weight_g: x.weight != null ? Math.round(x.weight) : null,
+      weight_source: x.weightSource,
+      missing_weight: x.weight == null,
+      base_price_eur: x.baseEur != null ? Math.round(x.baseEur * 100) / 100 : null,
+      unit_cost_eur: totalCostEur * ((1 - mixPrice) * physShare + mixPrice * priceShare),
+    };
+  });
+  return { items, totalPieces, missingWeight: rows.filter(x => x.weight == null).length, volumeCount: rows.filter(x => x.weightSource === 'volume').length, usedMethod: useWeight ? 'weight' : 'per_piece', pricePct: mixPrice * 100 };
 }
 
 // GET /api/pricing/shipping-lots — lotes de envío registrados
@@ -105,7 +147,7 @@ router.post('/shipping-lots/preview', async (req, res) => {
   try {
     const total = parseFloat(req.body.totalCostEur);
     if (!(total > 0)) return res.status(400).json({ error: 'El costo total debe ser mayor a 0' });
-    const a = await allocateShipping(total, req.body.method === 'per_piece' ? 'per_piece' : 'weight', req.body.categories);
+    const a = await allocateShipping(total, req.body.method === 'per_piece' ? 'per_piece' : 'weight', req.body.categories, req.body.pricePct);
     res.json({ ...a, totalCostEur: total });
   } catch (err) {
     console.error(err);
@@ -116,15 +158,15 @@ router.post('/shipping-lots/preview', async (req, res) => {
 // POST /api/pricing/shipping-lots — crear el lote y asignar el costo a cada producto
 router.post('/shipping-lots', async (req, res) => {
   try {
-    const { name, totalCostEur, method, notes, categories } = req.body;
+    const { name, totalCostEur, method, notes, categories, pricePct } = req.body;
     const total = parseFloat(totalCostEur);
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     if (!(total > 0)) return res.status(400).json({ error: 'El costo total debe ser mayor a 0' });
-    const a = await allocateShipping(total, method === 'per_piece' ? 'per_piece' : 'weight', categories);
+    const a = await allocateShipping(total, method === 'per_piece' ? 'per_piece' : 'weight', categories, pricePct);
     if (!a.items.length) return res.status(400).json({ error: 'No hay piezas en Bodega Munich sin costo de envío asignado' });
     const lot = await query(
-      `INSERT INTO shipping_lots (name, total_cost_eur, method, notes, created_by) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [name.trim(), total, a.usedMethod, notes || null, req.user?.userName]
+      `INSERT INTO shipping_lots (name, total_cost_eur, method, notes, created_by, price_pct) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [name.trim(), total, a.usedMethod, notes || null, req.user?.userName, a.pricePct]
     );
     for (const it of a.items) {
       await query(`INSERT INTO shipping_lot_items (lot_id, product_id, quantity, unit_cost_eur) VALUES ($1,$2,$3,$4)`,
