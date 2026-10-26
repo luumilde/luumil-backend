@@ -306,6 +306,7 @@ router.get('/product-catalog', async (req, res) => {
       const bodegaMx = stock['Bodega MX (CDMX)'] || 0;
       const enTransito = stock['En tránsito (MX→DE)'] || 0;
       const bodegaMunich = stock['Bodega Munich'] || 0;
+      const baja = stock['Baja'] || 0; // piezas dadas de baja (dañadas / que no sirven)
 
       return {
         sku: p.sku,
@@ -321,6 +322,7 @@ router.get('/product-catalog', async (req, res) => {
         bodega_mx: bodegaMx,
         en_transito: enTransito,
         bodega_munich: bodegaMunich,
+        baja,
         total_bodega: round2(bodegaMx + enTransito + bodegaMunich),
         propietario: isIntercompany ? 'Luumil Alemania' : 'Luumil México',
         precio_intercompany_eur: isIntercompany ? round2(parseFloat(p.intercompany_price_eur)) : '',
@@ -360,7 +362,7 @@ router.get('/product-catalog', async (req, res) => {
         hs_code: p.hs_code || '',
         estado_regulatorio: p.regulatory_status || '',
       };
-    }).filter(r => r.total_bodega > 0); // solo productos con inventario disponible (>0 piezas)
+    }).filter(r => r.total_bodega > 0 || r.baja > 0); // con inventario disponible (>0 piezas) o con piezas dadas de baja
 
     res.json(rows);
   } catch (err) {
