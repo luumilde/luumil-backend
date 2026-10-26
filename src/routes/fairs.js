@@ -259,8 +259,15 @@ export async function computeFairPricing(fairId) {
       const precioCalculadoMxn = markedUpMxn != null ? markedUpMxn + fairCostPerUnitMxn : null;
       const precioCalculadoEur = settings.exchangeRate > 0 && precioCalculadoMxn != null ? precioCalculadoMxn / settings.exchangeRate : null;
 
+      // Propuesta de precio final: el precio calculado redondeado a la decena de euros
+      // más cercana (arriba o abajo; mínimo 10). Myriam la acepta o la cambia a mano,
+      // y lo que acepte/cambie se guarda como el precio EUR de esta feria.
+      const proposedPriceEur = precioCalculadoEur != null && precioCalculadoEur > 0
+        ? Math.max(10, Math.round(precioCalculadoEur / 10) * 10) : null;
+
       return {
         ...p,
+        proposedPriceEur,
         fairCostPerUnitEur: round2(unitFeeEur),
         basePriceSource,
         costSource: isIntercompany ? 'intercompany' : 'supplier',
@@ -360,6 +367,28 @@ router.post('/:id/products/use-munich-qty', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to use Munich quantities' });
+  }
+});
+
+// POST /api/fairs/:id/products/accept-proposals — aceptar de un jalón la propuesta de
+// precio (calculado redondeado a decena) en todos los productos que aún no tienen
+// precio final definido para esta feria. No pisa los precios ya aceptados o cambiados.
+router.post('/:id/products/accept-proposals', async (req, res) => {
+  try {
+    const result = await computeFairPricing(req.params.id);
+    if (!result) return res.status(404).json({ error: 'Fair not found' });
+    let accepted = 0;
+    for (const p of result.products) {
+      if (p.fair_sale_price_eur == null && p.proposedPriceEur != null) {
+        await query(`UPDATE fair_products SET sale_price_eur=$1 WHERE fair_id=$2 AND product_id=$3`,
+          [p.proposedPriceEur, req.params.id, p.id]);
+        accepted++;
+      }
+    }
+    res.json({ ok: true, accepted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to accept proposals' });
   }
 });
 
