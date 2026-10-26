@@ -54,12 +54,35 @@ router.get('/eligible-orders/list', async (req, res) => {
       `SELECT po.*, s.name as supplier_name FROM purchase_orders po
        LEFT JOIN suppliers s ON po.supplier_id = s.id
        WHERE po.status IN ('confirmed','production','ready','receiving')
+         -- Si todas sus líneas ya están completas (ya se recibieron o ya entraron a
+         -- bodega por sincronización), ya no hay nada pendiente por recibir.
+         AND (
+           EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.purchase_order_id = po.id AND pol.line_status != 'complete')
+           OR NOT EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.purchase_order_id = po.id)
+         )
        ORDER BY po.delivery_date ASC NULLS LAST`
     );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch eligible orders' });
+  }
+});
+
+// Quitar una orden de "pendientes de recepción" cuando el producto YA está en bodega
+// (se capturó por otra vía). Marca sus líneas como recibidas por completo SIN crear
+// movimientos de inventario, para no duplicar piezas en bodega.
+router.post('/eligible-orders/:orderId/dismiss', async (req, res) => {
+  try {
+    const r = await query(
+      `UPDATE purchase_order_lines SET quantity_received = quantity_ordered, line_status = 'complete'
+       WHERE purchase_order_id = $1 AND line_status != 'complete'`,
+      [req.params.orderId]
+    );
+    res.json({ ok: true, lines: r.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to dismiss order' });
   }
 });
 
