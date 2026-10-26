@@ -1,0 +1,1092 @@
+[
+ {
+  "sku": "LUM-0005",
+  "beschreibung": "Schale mit drei Füßen",
+  "material": "Grüner Ton, matt"
+ },
+ {
+  "sku": "LUM-0014",
+  "beschreibung": "Kerzenhalter",
+  "material": "Grüner Ton"
+ },
+ {
+  "sku": "LUM-0054",
+  "beschreibung": "Hohle Dekokugel",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0055",
+  "beschreibung": "Tasse mit Gesicht",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0057",
+  "beschreibung": "Salzschälchen",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0061",
+  "beschreibung": "Teller in Agavenblattform",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0072",
+  "beschreibung": "Schmuckkästchen mit Pilzen",
+  "material": "Schwarzer Ton"
+ },
+ {
+  "sku": "LUM-0073",
+  "beschreibung": "Schmuckkästchen",
+  "material": "Schwarzer Ton"
+ },
+ {
+  "sku": "LUM-0077",
+  "beschreibung": "Tafelaufsatz mit Kugeln",
+  "material": "Schwarzer Ton, unpoliert"
+ },
+ {
+  "sku": "LUM-0087",
+  "beschreibung": "Alebrije Adler (Fabeltier)",
+  "material": "Copal-Holz, Acryl-/Naturfarbe"
+ },
+ {
+  "sku": "LUM-0088",
+  "beschreibung": "Alebrije Hund (Fabeltier)",
+  "material": "Copal-Holz, Acryl-/Naturfarbe"
+ },
+ {
+  "sku": "LUM-0094",
+  "beschreibung": "Molinillo (Quirl), groß",
+  "material": "Holz"
+ },
+ {
+  "sku": "LUM-0095",
+  "beschreibung": "Molinillo (Quirl), mittel",
+  "material": "Holz"
+ },
+ {
+  "sku": "LUM-0096",
+  "beschreibung": "Halskette, grün",
+  "material": "Lemonquarz, Silber 925"
+ },
+ {
+  "sku": "LUM-0097",
+  "beschreibung": "Halskette, grau",
+  "material": "Labradorit, Silber 925"
+ },
+ {
+  "sku": "LUM-0098",
+  "beschreibung": "Halskette, weiß",
+  "material": "Regenbogen-Mondstein, Silber 925"
+ },
+ {
+  "sku": "LUM-0099",
+  "beschreibung": "Halskette, grau",
+  "material": "Labradorit, Silber 925"
+ },
+ {
+  "sku": "LUM-0100",
+  "beschreibung": "Halskette, hellgrün",
+  "material": "Amazonit, Silber 925"
+ },
+ {
+  "sku": "LUM-0101",
+  "beschreibung": "Halskette, zartrosa",
+  "material": "Rosenquarz"
+ },
+ {
+  "sku": "LUM-0102",
+  "beschreibung": "Halskette, rot",
+  "material": "Granat, Silber 925"
+ },
+ {
+  "sku": "LUM-0103",
+  "beschreibung": "Zierlicher Ring",
+  "material": "Silber 925, Perle, Jade"
+ },
+ {
+  "sku": "LUM-0104",
+  "beschreibung": "Halskette, dunkelgrün",
+  "material": "Labradorit"
+ },
+ {
+  "sku": "LUM-0105",
+  "beschreibung": "Halskette, weiß",
+  "material": "Regenbogen-Mondstein, Silber 925"
+ },
+ {
+  "sku": "LUM-0106",
+  "beschreibung": "Kette mit Kugelanhänger",
+  "material": "Silber 925, dunkelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0107",
+  "beschreibung": "Kette mit drei Anhängern",
+  "material": "Silber, Perle, apfelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0108",
+  "beschreibung": "Kette mit Kolibri",
+  "material": "Silber 925, dunkelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0109",
+  "beschreibung": "Kette mit Kugelanhänger",
+  "material": "Silber 925, apfelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0110",
+  "beschreibung": "Kette mit Herzanhänger",
+  "material": "Silber 925, dunkelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0111",
+  "beschreibung": "Zierliche Kette",
+  "material": "Silber 925, Perle"
+ },
+ {
+  "sku": "LUM-0112",
+  "beschreibung": "Ring mit Schmuckstein",
+  "material": "Silber 925, Falkenauge"
+ },
+ {
+  "sku": "LUM-0122",
+  "beschreibung": "Baumschmuck Stiefel, groß",
+  "material": "Wolle"
+ },
+ {
+  "sku": "LUM-0123",
+  "beschreibung": "Baumschmuck Stern, groß",
+  "material": "Wolle"
+ },
+ {
+  "sku": "LUM-0126",
+  "beschreibung": "Christbaumschmuck, klein",
+  "material": "Wolle"
+ },
+ {
+  "sku": "LUM-0130",
+  "beschreibung": "Gewebte Halskette",
+  "material": "Seidengarn"
+ },
+ {
+  "sku": "LUM-0133",
+  "beschreibung": "Mehrreihige Halskette",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0134",
+  "beschreibung": "Mehrreihiges Armband",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0135",
+  "beschreibung": "Schmales Armband",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0145",
+  "beschreibung": "Dekoring zum Aufhängen, 5 cm",
+  "material": "Palmblattgeflecht"
+ },
+ {
+  "sku": "LUM-0146",
+  "beschreibung": "Dekoring zum Aufhängen, 8 cm",
+  "material": "Palmblattgeflecht"
+ },
+ {
+  "sku": "LUM-0149",
+  "beschreibung": "Große Vase, grün",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0150",
+  "beschreibung": "Minivase, grün",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0153",
+  "beschreibung": "Kleiner Krug mit Schuppen",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0156",
+  "beschreibung": "Kleiner Krug, weiß",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0157",
+  "beschreibung": "Tablett mit Quallenmotiv",
+  "material": "Steinzeug"
+ },
+ {
+  "sku": "LUM-0158",
+  "beschreibung": "Tablett, grün",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0160",
+  "beschreibung": "Mezcalera (Mezcal-Karaffe)",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0161",
+  "beschreibung": "Teekanne, weiß-grün",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0163",
+  "beschreibung": "Tasse mit Oktopus-Motiv",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0164",
+  "beschreibung": "Kleine Becher, bunt",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0165",
+  "beschreibung": "Schale mit Sternbildern",
+  "material": "Steinzeug"
+ },
+ {
+  "sku": "LUM-0168",
+  "beschreibung": "Platzteller, grün",
+  "material": "Steinzeug, glasiert"
+ },
+ {
+  "sku": "LUM-0215",
+  "beschreibung": "Tropfenanhänger",
+  "material": "Granat, Silber 925"
+ },
+ {
+  "sku": "LUM-0216",
+  "beschreibung": "Runder Anhänger",
+  "material": "Granat, Silber 925"
+ },
+ {
+  "sku": "LUM-0217",
+  "beschreibung": "Anhänger, grau",
+  "material": "Perle"
+ },
+ {
+  "sku": "LUM-0218",
+  "beschreibung": "Ovaler Anhänger",
+  "material": "Durchscheinender Jade"
+ },
+ {
+  "sku": "LUM-0219",
+  "beschreibung": "Runder Anhänger",
+  "material": "Labradorit"
+ },
+ {
+  "sku": "LUM-0220",
+  "beschreibung": "Quadratischer Anhänger",
+  "material": "Jade"
+ },
+ {
+  "sku": "LUM-0221",
+  "beschreibung": "Anhänger, weiß",
+  "material": "Perle"
+ },
+ {
+  "sku": "LUM-0222",
+  "beschreibung": "Anhänger",
+  "material": "Abalone-Muschel"
+ },
+ {
+  "sku": "LUM-0223",
+  "beschreibung": "Anhänger mit Blattmotiv",
+  "material": "Türkis"
+ },
+ {
+  "sku": "LUM-0224",
+  "beschreibung": "Geoden-Anhänger",
+  "material": "Achat"
+ },
+ {
+  "sku": "LUM-0225",
+  "beschreibung": "Ovaler Anhänger",
+  "material": "Türkis"
+ },
+ {
+  "sku": "LUM-0226",
+  "beschreibung": "Runder Anhänger",
+  "material": "Apfelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0227",
+  "beschreibung": "Ohrringe",
+  "material": "Roter Bernstein"
+ },
+ {
+  "sku": "LUM-0228",
+  "beschreibung": "Runde Ohrringe",
+  "material": "Apfelgrüner Jade"
+ },
+ {
+  "sku": "LUM-0229",
+  "beschreibung": "Ohrringe, durchscheinend",
+  "material": "Jade"
+ },
+ {
+  "sku": "LUM-0230",
+  "beschreibung": "Ohrringe",
+  "material": "Mondfarbener Jade, Perle"
+ },
+ {
+  "sku": "LUM-0231",
+  "beschreibung": "Ohrringe",
+  "material": "Rosenquarz, vergoldet"
+ },
+ {
+  "sku": "LUM-0232",
+  "beschreibung": "Ohrringe",
+  "material": "Amazonit, vergoldet"
+ },
+ {
+  "sku": "LUM-0245",
+  "beschreibung": "Birnendose mit Blumendekor",
+  "material": "Kalebasse, Lack"
+ },
+ {
+  "sku": "LUM-0247",
+  "beschreibung": "Runde Ohrringe, groß",
+  "material": "Holz, Lack, Metall"
+ },
+ {
+  "sku": "LUM-0248",
+  "beschreibung": "Kleine Ohrringe",
+  "material": "Holz, Lack, Metall"
+ },
+ {
+  "sku": "LUM-0254",
+  "beschreibung": "Mosaikbild",
+  "material": "Glasmosaik, Holz"
+ },
+ {
+  "sku": "LUM-0255",
+  "beschreibung": "Schmuckkästchen, bunt",
+  "material": "MDF, Glasmosaik"
+ },
+ {
+  "sku": "LUM-0256",
+  "beschreibung": "Schmuckkasten mit Schwan",
+  "material": "MDF, Glasmosaik"
+ },
+ {
+  "sku": "LUM-0257",
+  "beschreibung": "Tasse, mittelgroß",
+  "material": "Steinzeug"
+ },
+ {
+  "sku": "LUM-0258",
+  "beschreibung": "Espressotasse",
+  "material": "Steinzeug"
+ },
+ {
+  "sku": "LUM-0259",
+  "beschreibung": "Snackschale, 3 Fächer",
+  "material": "Guamúchil-Holz, behandelt"
+ },
+ {
+  "sku": "LUM-0260",
+  "beschreibung": "Salzschälchen",
+  "material": "Keramik, Glasur, Pigmente"
+ },
+ {
+  "sku": "LUM-0261",
+  "beschreibung": "Schmuckdose, schwarz-weiß",
+  "material": "Keramik, Glasur, Pigmente"
+ },
+ {
+  "sku": "LUM-0262",
+  "beschreibung": "Küchenset, 6-teilig",
+  "material": "Keramik, Glasur, Pigmente"
+ },
+ {
+  "sku": "LUM-0263",
+  "beschreibung": "Tasse mit Ährenmotiv",
+  "material": "Ton, Glasur, Kaolin, Pigmente"
+ },
+ {
+  "sku": "LUM-0264",
+  "beschreibung": "Dekoteller",
+  "material": "Polierter Ton, MDF"
+ },
+ {
+  "sku": "LUM-0265",
+  "beschreibung": "Tasse mit Reliefdekor",
+  "material": "Ton, Glasur, Kaolin, Pigmente"
+ },
+ {
+  "sku": "LUM-0266",
+  "beschreibung": "Blumenvase",
+  "material": "Polierter Ton"
+ },
+ {
+  "sku": "LUM-0267",
+  "beschreibung": "Dekogefäß",
+  "material": "Schwarzer Ton"
+ },
+ {
+  "sku": "LUM-0268",
+  "beschreibung": "Dekokugel",
+  "material": "Polierter Ton"
+ },
+ {
+  "sku": "LUM-0269",
+  "beschreibung": "Dekokugel",
+  "material": "Polierter Ton"
+ },
+ {
+  "sku": "LUM-0270",
+  "beschreibung": "Kühlschrankmagnet",
+  "material": "Polierter Ton, Magnet"
+ },
+ {
+  "sku": "LUM-0271",
+  "beschreibung": "Dekoherz, schwarz",
+  "material": "Holz, Nägel, Messing"
+ },
+ {
+  "sku": "LUM-0272",
+  "beschreibung": "Schachtel, gelb",
+  "material": "Holz"
+ },
+ {
+  "sku": "LUM-0273",
+  "beschreibung": "Tischläufer, handgewebt",
+  "material": "Manta, 100% algodón"
+ },
+ {
+  "sku": "LUM-0274",
+  "beschreibung": "Rentier-Figur",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0275",
+  "beschreibung": "Wandbild / Tablett",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0276",
+  "beschreibung": "Deko-Walflosse",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0277",
+  "beschreibung": "Dekomaske",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0278",
+  "beschreibung": "Schmuckset, goldfarben",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0279",
+  "beschreibung": "Armband mit Blumenmuster",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0280",
+  "beschreibung": "Set: Ohrringe und Anhänger",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0281",
+  "beschreibung": "Lange Hängeohrringe",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0282",
+  "beschreibung": "Christbaumkugel, klassisch",
+  "material": "Holz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0283",
+  "beschreibung": "Christbaumkugel, metallic",
+  "material": "Holz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0284",
+  "beschreibung": "Kolibri-Figur",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0285",
+  "beschreibung": "Rochen-Figur",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0286",
+  "beschreibung": "Christbaum mit Kugeln",
+  "material": "Kiefernholz, Glasperlen"
+ },
+ {
+  "sku": "LUM-0287",
+  "beschreibung": "Feines Armband",
+  "material": "Miyuki-Perlen, Satinkordel"
+ },
+ {
+  "sku": "LUM-0288",
+  "beschreibung": "Lange Halskette",
+  "material": "Feine Glasperlen"
+ },
+ {
+  "sku": "LUM-0289",
+  "beschreibung": "Breites Armband",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0290",
+  "beschreibung": "Schmales Armband",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0291",
+  "beschreibung": "Gefädelte Ohrringe",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0292",
+  "beschreibung": "Hohes Trinkglas",
+  "material": "Glas, mundgeblasen"
+ },
+ {
+  "sku": "LUM-0293",
+  "beschreibung": "Rebozo (Schultertuch)",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0294",
+  "beschreibung": "Tischläufer, Naturtöne",
+  "material": "Manta, 100% algodón"
+ },
+ {
+  "sku": "LUM-0295",
+  "beschreibung": "Hängematte für 1 Person",
+  "material": "100% Naturbaumwolle, Aluminium"
+ },
+ {
+  "sku": "LUM-0296",
+  "beschreibung": "Webtasche mit Tupfenmuster",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0297",
+  "beschreibung": "Gestreifte Webtasche",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0298",
+  "beschreibung": "Becher, handbemalt, mittel",
+  "material": "Ton, glasiert, bleifrei"
+ },
+ {
+  "sku": "LUM-0299",
+  "beschreibung": "Becher, handbemalt, klein",
+  "material": "Ton, glasiert, bleifrei"
+ },
+ {
+  "sku": "LUM-0302",
+  "beschreibung": "Set: Anhänger und Ohrringe",
+  "material": "Bernstein, Silber, Edelstahl"
+ },
+ {
+  "sku": "LUM-0303",
+  "beschreibung": "Halskette, groß",
+  "material": "Bernstein, Silber, Stahldraht"
+ },
+ {
+  "sku": "LUM-0304",
+  "beschreibung": "Halskette, klein",
+  "material": "Bernstein, Silber, Stahldraht"
+ },
+ {
+  "sku": "LUM-0305",
+  "beschreibung": "Halskette, mittellang",
+  "material": "Bernstein, Silber, Stahldraht"
+ },
+ {
+  "sku": "LUM-0306",
+  "beschreibung": "Halskette, mittellang",
+  "material": "Bernstein, Silber, Stahldraht"
+ },
+ {
+  "sku": "LUM-0307",
+  "beschreibung": "Schlichte Ohrringe",
+  "material": "Jade, Edelstahl"
+ },
+ {
+  "sku": "LUM-0308",
+  "beschreibung": "Tortillero (Tortillawärmer)",
+  "material": "100% Baumwolle (Manta)"
+ },
+ {
+  "sku": "LUM-0309",
+  "beschreibung": "Molcajete (Steinmörser)",
+  "material": "Vulkanstein, Holz"
+ },
+ {
+  "sku": "LUM-0310",
+  "beschreibung": "Puppe „Comandante Marcos“",
+  "material": "Wolle, Holz"
+ },
+ {
+  "sku": "LUM-0311",
+  "beschreibung": "Schmuckkästchen, grün",
+  "material": "Glas"
+ },
+ {
+  "sku": "LUM-0312",
+  "beschreibung": "Stiftehalter, Wixárika-Stil",
+  "material": "MDF, Glasperlen"
+ },
+ {
+  "sku": "LUM-0313",
+  "beschreibung": "Armband",
+  "material": "Bernstein"
+ },
+ {
+  "sku": "LUM-0314",
+  "beschreibung": "Geldbörse im Wixárika-Stil",
+  "material": "100% Baumwolle, Glasperlen"
+ },
+ {
+  "sku": "LUM-0315",
+  "beschreibung": "Quechquémitl (Umhang)",
+  "material": "100% Wolle"
+ },
+ {
+  "sku": "LUM-0316",
+  "beschreibung": "Geldbörse, braun",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0317",
+  "beschreibung": "Kleine Geldbörse",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0318",
+  "beschreibung": "Clutch, gelb",
+  "material": "100% Baumwolle"
+ },
+ {
+  "sku": "LUM-0319",
+  "beschreibung": "Morral (Umhängetasche)",
+  "material": "Ixtle-Agavenfaser, Leder"
+ },
+ {
+  "sku": "LUM-0320",
+  "beschreibung": "Huipil (Tunika) mit Rauten",
+  "material": "100% Wolle"
+ },
+ {
+  "sku": "LUM-0321",
+  "beschreibung": "Gefädelte Halskette",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0322",
+  "beschreibung": "Bemalte Schachtel",
+  "material": "Kiefernholz, Acryl, Lack"
+ },
+ {
+  "sku": "LUM-0323",
+  "beschreibung": "Kleines Dekotablett",
+  "material": "Marmor"
+ },
+ {
+  "sku": "LUM-0324",
+  "beschreibung": "Schmuckkästchen",
+  "material": "Onyx"
+ },
+ {
+  "sku": "LUM-0325",
+  "beschreibung": "Mundgeblasene Vase",
+  "material": "Glas, Rosa-Morada-Holz"
+ },
+ {
+  "sku": "LUM-0326",
+  "beschreibung": "Wandspiegel",
+  "material": "MDF, Pigmente, Spiegelglas"
+ },
+ {
+  "sku": "LUM-0327",
+  "beschreibung": "Kleine Tierfiguren",
+  "material": "Wolle, Baumwolle, Filz, Garn"
+ },
+ {
+  "sku": "LUM-0328",
+  "beschreibung": "Serviettenhalter, bunt",
+  "material": "Ton"
+ },
+ {
+  "sku": "LUM-0329",
+  "beschreibung": "Lotería-Untersetzer, eckig",
+  "material": "Ton"
+ },
+ {
+  "sku": "LUM-0330",
+  "beschreibung": "Lotería-Untersetzer, rund",
+  "material": "Ton"
+ },
+ {
+  "sku": "LUM-0331",
+  "beschreibung": "Serviettenhalter, schwarz",
+  "material": "Keramik"
+ },
+ {
+  "sku": "LUM-0332",
+  "beschreibung": "Tasse, diverse Designs",
+  "material": "Keramik"
+ },
+ {
+  "sku": "LUM-0333",
+  "beschreibung": "Runde Schmuckdose, bunt",
+  "material": "Keramik"
+ },
+ {
+  "sku": "LUM-0334",
+  "beschreibung": "Löffelablage",
+  "material": "Keramik"
+ },
+ {
+  "sku": "LUM-0335",
+  "beschreibung": "Vase, diverse Designs",
+  "material": "Keramik"
+ },
+ {
+  "sku": "LUM-0337",
+  "beschreibung": "Neckholder-Maxikleid „Talia“",
+  "material": "70% Viskose, 30% Leinen"
+ },
+ {
+  "sku": "LUM-0338",
+  "beschreibung": "Neckholder-Kleid „Solange“",
+  "material": "70% Viskose, 30% Leinen"
+ },
+ {
+  "sku": "LUM-0339",
+  "beschreibung": "Langes Kleid „Marcella“",
+  "material": "70% Viskose, 30% Leinen"
+ },
+ {
+  "sku": "LUM-0340",
+  "beschreibung": "Maxikleid „Amaranta“",
+  "material": "70% Viskose, 30% Leinen"
+ },
+ {
+  "sku": "LUM-0341",
+  "beschreibung": "Moderne Ohrringe",
+  "material": "Polymer-Ton, Edelstahl"
+ },
+ {
+  "sku": "LUM-0342",
+  "beschreibung": "Gefädeltes Armband",
+  "material": "Glasperlen"
+ },
+ {
+  "sku": "LUM-0343",
+  "beschreibung": "Alebrije-Puzzle (Fabeltiere)",
+  "material": "Karton"
+ },
+ {
+  "sku": "LUM-0344",
+  "beschreibung": "Schmuckbaum zum Stecken",
+  "material": "Karton"
+ },
+ {
+  "sku": "LUM-0345",
+  "beschreibung": "Kolibri-Bastelpostkarte",
+  "material": "Karton"
+ },
+ {
+  "sku": "LUM-0347",
+  "beschreibung": "Handbemalte Vase, klein",
+  "material": "Majolika-Keramik"
+ },
+ {
+  "sku": "LUM-0348",
+  "beschreibung": "Handbemalte Vase, mittel",
+  "material": "Majolika-Keramik"
+ },
+ {
+  "sku": "LUM-0349",
+  "beschreibung": "Handbemalte Vase, groß",
+  "material": "Majolika-Keramik"
+ },
+ {
+  "sku": "LUM-0350",
+  "beschreibung": "Hundehalsband, klein",
+  "material": "Garn, Leder, Metall"
+ },
+ {
+  "sku": "LUM-0351",
+  "beschreibung": "Hundehalsband, mittel",
+  "material": "Garn, Leder, Metall"
+ },
+ {
+  "sku": "LUM-0352",
+  "beschreibung": "Hundehalsband, groß",
+  "material": "Garn, Leder, Metall"
+ },
+ {
+  "sku": "LUM-0353",
+  "beschreibung": "Geknüpftes Hundehalsband, L",
+  "material": "Garn, Leder, Metall"
+ },
+ {
+  "sku": "LUM-0354",
+  "beschreibung": "Geknüpftes Hundehalsband, M",
+  "material": "Garn, Leder, Metall"
+ },
+ {
+  "sku": "LUM-0355",
+  "beschreibung": "Lek (Dose) mit Maya-Motiven",
+  "material": "Kalebasse, gefärbt"
+ },
+ {
+  "sku": "LUM-0356",
+  "beschreibung": "Jícara (Schale), verziert",
+  "material": "Kalebasse (Flaschenkürbis)"
+ },
+ {
+  "sku": "LUM-0357",
+  "beschreibung": "Runde Filigran-Ohrringe",
+  "material": "Silber 925"
+ },
+ {
+  "sku": "LUM-0358",
+  "beschreibung": "Rochen-Ohrringe, Filigran",
+  "material": "Silber 925"
+ },
+ {
+  "sku": "LUM-0359",
+  "beschreibung": "Tasche mit Kolibri-Stickerei",
+  "material": "Dzalam-Holz, Garn, Holzperlen"
+ },
+ {
+  "sku": "LUM-0360",
+  "beschreibung": "Armband",
+  "material": "Dzalam-Holz, Perlmutt"
+ },
+ {
+  "sku": "LUM-0361",
+  "beschreibung": "Halskette",
+  "material": "Dzalam-Holz"
+ },
+ {
+  "sku": "LUM-0362",
+  "beschreibung": "Ohrringe",
+  "material": "Dzalam-Holz"
+ },
+ {
+  "sku": "LUM-0363",
+  "beschreibung": "Blumenvase",
+  "material": "Versteinertes Maulbeerholz"
+ },
+ {
+  "sku": "LUM-0364",
+  "beschreibung": "Blumenvase",
+  "material": "Ziricote-Holz"
+ },
+ {
+  "sku": "LUM-0365",
+  "beschreibung": "Figur Blue Demon / Tecuán",
+  "material": "Karton"
+ },
+ {
+  "sku": "LUM-0366",
+  "beschreibung": "Druck „Angelus Laptus“",
+  "material": "Papier"
+ },
+ {
+  "sku": "LUM-0367",
+  "beschreibung": "Kerze in Gnomform",
+  "material": "Wachs"
+ },
+ {
+  "sku": "LUM-0368",
+  "beschreibung": "Tasse mit Jaguar-Motiv",
+  "material": "Ton"
+ },
+ {
+  "sku": "LUM-0369",
+  "beschreibung": "Flügel-Ohrringe, klein",
+  "material": "Silber 925, Amethyst"
+ },
+ {
+  "sku": "LUM-0370",
+  "beschreibung": "Ohrringe in Ährenform",
+  "material": "Silber 925, türkisblauer Stein"
+ },
+ {
+  "sku": "LUM-0371",
+  "beschreibung": "Mangrovenblatt-Ohrringe",
+  "material": "Silber 925, Perle"
+ },
+ {
+  "sku": "LUM-0372",
+  "beschreibung": "Libellen-Ohrringe, mittel",
+  "material": "Silber 925, Jade"
+ },
+ {
+  "sku": "LUM-0373",
+  "beschreibung": "Libellen-Ohrringe, mini",
+  "material": "Silber 925, Rosenquarz"
+ },
+ {
+  "sku": "LUM-0374",
+  "beschreibung": "Herzohrringe mit Blättchen",
+  "material": "Silber 925"
+ },
+ {
+  "sku": "LUM-0375",
+  "beschreibung": "Maiskolben-Ohrringe, mini",
+  "material": "Silber 925, Perle, Onyx"
+ },
+ {
+  "sku": "LUM-0376",
+  "beschreibung": "Mangrovenblatt-Anhänger",
+  "material": "Silber 925, Perle"
+ },
+ {
+  "sku": "LUM-0377",
+  "beschreibung": "Bucket-Hobo-Tasche",
+  "material": "Wildleder"
+ },
+ {
+  "sku": "LUM-0378",
+  "beschreibung": "Tasche „Sweden Bag“",
+  "material": "Wildleder"
+ },
+ {
+  "sku": "LUM-0379",
+  "beschreibung": "Tote Bag mit Mäandermuster",
+  "material": "Wildleder"
+ },
+ {
+  "sku": "LUM-0380",
+  "beschreibung": "Hemdblusenkleid, schwarz",
+  "material": "50% Leinen, 50% Baumwolle"
+ },
+ {
+  "sku": "LUM-0381",
+  "beschreibung": "Hemdbluse",
+  "material": "50% Leinen, 50% Baumwolle"
+ },
+ {
+  "sku": "LUM-0382",
+  "beschreibung": "Kleid, blau",
+  "material": "50% Leinen, 50% Baumwolle"
+ },
+ {
+  "sku": "LUM-0383",
+  "beschreibung": "Ohrringe mit Gesichtern",
+  "material": "Silber 925"
+ },
+ {
+  "sku": "LUM-0384",
+  "beschreibung": "Feder-Ohrringe",
+  "material": "Silber 925"
+ },
+ {
+  "sku": "LUM-0387",
+  "beschreibung": "Handtasche",
+  "material": "Korbweide, Leder"
+ },
+ {
+  "sku": "LUM-0388",
+  "beschreibung": "Geldbörse, ziegelbraun",
+  "material": "Leder"
+ },
+ {
+  "sku": "LUM-0389",
+  "beschreibung": "Etui, grün",
+  "material": "Leder, Druckknopf"
+ },
+ {
+  "sku": "LUM-0390",
+  "beschreibung": "Choker mit Blüten",
+  "material": "Leder"
+ },
+ {
+  "sku": "LUM-0391",
+  "beschreibung": "Nicho (Wandschrein)",
+  "material": "Pappmaché"
+ },
+ {
+  "sku": "LUM-0392",
+  "beschreibung": "Druckgrafik mit Aufsteller",
+  "material": "Papier, Druckfarbe"
+ },
+ {
+  "sku": "LUM-0393",
+  "beschreibung": "Druckgrafik, schwarz-weiß",
+  "material": "Papier, Druckfarbe"
+ },
+ {
+  "sku": "LUM-0399",
+  "beschreibung": "Quetzalcóatl (Federschlange)",
+  "material": "Kunststoff, 3D-Druck"
+ },
+ {
+  "sku": "LUM-0400",
+  "beschreibung": "Jadegrüne Schlange, klein",
+  "material": "Kunststoff, 3D-Druck"
+ },
+ {
+  "sku": "LUM-0401",
+  "beschreibung": "Jaguar (Tezcatlipoca)",
+  "material": "Kunststoff, 3D-Druck"
+ },
+ {
+  "sku": "LUM-0402",
+  "beschreibung": "Dose im Talavera-Stil",
+  "material": "Kunststoff, 3D-Druck"
+ },
+ {
+  "sku": "LUM-0403",
+  "beschreibung": "Dose, aztekisches Design",
+  "material": "Kunststoff, 3D-Druck"
+ },
+ {
+  "sku": "LUM-0404",
+  "beschreibung": "Hohes Dekogefäß",
+  "material": "Schwarzer Ton"
+ },
+ {
+  "sku": "LUM-0405",
+  "beschreibung": "Niedriges Trinkglas",
+  "material": "Glas, mundgeblasen"
+ },
+ {
+  "sku": "LUM-0406",
+  "beschreibung": "Tasse, groß",
+  "material": "Steinzeug"
+ },
+ {
+  "sku": "LUM-0407",
+  "beschreibung": "Herz zum Aufhängen",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0408",
+  "beschreibung": "Hohe Vase",
+  "material": "Schwarzer Ton, poliert"
+ },
+ {
+  "sku": "LUM-0409",
+  "beschreibung": "Schüssel mit Gesicht",
+  "material": "Grüner Ton"
+ },
+ {
+  "sku": "LUM-0410",
+  "beschreibung": "Stiftehalter mit Gesicht",
+  "material": "Roter Ton"
+ }
+]

@@ -219,6 +219,7 @@ export async function computeFairPricing(fairId) {
       const basePriceEur = assignedEur != null ? assignedEur : generalCalculadoEur;
       return {
         isIntercompany,
+        shippingEstimated: shipUnit == null && !isIntercompany,
         basePriceSource: assignedEur != null ? 'assigned' : 'calculated',
         basePriceEur,
         basePriceMxn: basePriceEur != null ? basePriceEur * settings.exchangeRate : null,
@@ -252,7 +253,7 @@ export async function computeFairPricing(fairId) {
     }
 
     const products = assigned.rows.map(p => {
-      const { isIntercompany, basePriceSource, basePriceEur, basePriceMxn } = bases.get(p.id);
+      const { isIntercompany, shippingEstimated, basePriceSource, basePriceEur, basePriceMxn } = bases.get(p.id);
       const unitFeeEur = feeUnitEur.get(p.id) || 0;
       const fairCostPerUnitMxn = unitFeeEur * settings.exchangeRate;
 
@@ -273,6 +274,8 @@ export async function computeFairPricing(fairId) {
       return {
         ...p,
         proposedPriceEur,
+        shippingEstimated,
+        anyShippingLots: shipMap.size > 0,
         fairCostPerUnitEur: round2(unitFeeEur),
         basePriceSource,
         costSource: isIntercompany ? 'intercompany' : 'supplier',

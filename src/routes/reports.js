@@ -1,6 +1,6 @@
 import express from 'express';
 import { query } from '../db/pool.js';
-import { getGlobalSettings } from './pricing.js';
+import { getGlobalSettings, getShippingUnitCostMap } from './pricing.js';
 import { computeFairPricing } from './fairs.js';
 
 const router = express.Router();
@@ -190,7 +190,7 @@ router.get('/product-catalog', async (req, res) => {
     const productsRes = await query(`
       SELECT p.id, p.sku, p.name_es, p.name_de, p.categories, p.materials,
         p.height_cm, p.width_cm, p.depth_cm, p.weight_g, p.photos,
-        p.purchase_price_mxn, p.hs_code, p.regulatory_status,
+        p.purchase_price_mxn, p.sale_price_eur, p.hs_code, p.regulatory_status,
         s.name AS supplier_name, s.city AS supplier_city, s.state AS supplier_state,
         s.contact_name AS supplier_contact, s.whatsapp AS supplier_whatsapp, s.email AS supplier_email,
         ic.price_eur AS intercompany_price_eur,
@@ -255,6 +255,16 @@ router.get('/product-catalog', async (req, res) => {
       }
     }
 
+    // Lotes de envío (maletas/DHL) por producto, para el desglose de costos
+    const shipMap = await getShippingUnitCostMap();
+    const lotNamesByProduct = {};
+    try {
+      const lr = await query(`
+        SELECT i.product_id, STRING_AGG(DISTINCT l.name, ', ' ORDER BY l.name) AS lotes
+        FROM shipping_lot_items i JOIN shipping_lots l ON l.id = i.lot_id GROUP BY i.product_id`);
+      lr.rows.forEach(x => { lotNamesByProduct[x.product_id] = x.lotes; });
+    } catch { /* aún no existe la tabla de lotes */ }
+
     const photoUrl = (photos) => {
       for (const v of Object.values(photos || {})) {
         if (v && typeof v === 'object' && v.url) return v.url;
@@ -265,11 +275,33 @@ router.get('/product-catalog', async (req, res) => {
     const rows = productsRes.rows.map(p => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
       const isIntercompany = p.intercompany_price_eur != null;
+      const rate = settings.exchangeRate;
+
+      // Desglose del costo (misma lógica que Pricing → General):
+      //  - Intercompany: el costo es el precio intercompany, sin sumar nada más.
+      //  - Proveedor con envío de lote: compra + marketing% + otros% + envío fijo.
+      //  - Proveedor sin lote: compra + embalaje/envío% (estimado) + marketing% + otros%.
+      const shipUnitEur = shipMap.get(p.id);
+      const hasLotShipping = !isIntercompany && shipUnitEur != null;
+      const pctEnvio = !isIntercompany && !hasLotShipping ? settings.packagingShippingPct : 0;
+      const pctMkt = isIntercompany ? 0 : settings.marketingPct;
+      const pctOtros = isIntercompany ? 0 : settings.otherCostsPct;
+      const embalajeEnvioEstMxn = purchasePrice * pctEnvio / 100;
+      const marketingMxn = purchasePrice * pctMkt / 100;
+      const otrosMxn = purchasePrice * pctOtros / 100;
+      const envioLoteMxn = hasLotShipping ? shipUnitEur * rate : 0;
       const costoMxn = isIntercompany
-        ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
-        : purchasePrice * (1 + totalPct / 100);
-      const precioBaseMxn = costoMxn * settings.generalMultiplier;
-      const precioBaseEur = settings.exchangeRate > 0 ? precioBaseMxn / settings.exchangeRate : null;
+        ? parseFloat(p.intercompany_price_eur) * rate
+        : purchasePrice + embalajeEnvioEstMxn + marketingMxn + otrosMxn + envioLoteMxn;
+      const costoEur = rate > 0 ? costoMxn / rate : null;
+      const precioCalcMxn = costoMxn * settings.generalMultiplier;
+      const precioCalcEur = rate > 0 ? precioCalcMxn / rate : null;
+      // Precio base final: el "Precio EUR asignado" si existe; si no, el calculado
+      const asignadoEur = p.sale_price_eur != null ? parseFloat(p.sale_price_eur) : null;
+      const precioBaseEur = asignadoEur != null ? asignadoEur : precioCalcEur;
+      const precioBaseMxn = precioBaseEur != null ? precioBaseEur * rate : null;
+      const origenCosto = isIntercompany ? 'Intercompany'
+        : hasLotShipping ? 'Proveedor + envío de lote' : 'Proveedor + % envío estimado';
       const stock = stockByProduct[p.id] || {};
       const bodegaMx = stock['Bodega MX (CDMX)'] || 0;
       const enTransito = stock['En tránsito (MX→DE)'] || 0;
@@ -293,9 +325,25 @@ router.get('/product-catalog', async (req, res) => {
         propietario: isIntercompany ? 'Luumil Alemania' : 'Luumil México',
         precio_intercompany_eur: isIntercompany ? round2(parseFloat(p.intercompany_price_eur)) : '',
         precio_intercompany_mxn: isIntercompany ? round2(parseFloat(p.intercompany_price_eur) * settings.exchangeRate) : '',
-        precio_base_mxn: round2(precioBaseMxn),
+        // — Desglose de costos —
+        pct_embalaje_envio_estimado: isIntercompany ? '' : pctEnvio,
+        embalaje_envio_estimado_mxn: round2(embalajeEnvioEstMxn),
+        envio_lote_eur: hasLotShipping ? round2(shipUnitEur) : '',
+        envio_lote_mxn: hasLotShipping ? round2(envioLoteMxn) : '',
+        lote_envio: lotNamesByProduct[p.id] || '',
+        pct_marketing: isIntercompany ? '' : pctMkt,
+        marketing_mxn: round2(marketingMxn),
+        pct_otros_costos: isIntercompany ? '' : pctOtros,
+        otros_costos_mxn: round2(otrosMxn),
+        costo_total_mxn: round2(costoMxn),
+        costo_total_eur: costoEur != null ? round2(costoEur) : '',
+        multiplicador_general: settings.generalMultiplier,
+        precio_calculado_mxn: round2(precioCalcMxn),
+        precio_calculado_eur: precioCalcEur != null ? round2(precioCalcEur) : '',
+        precio_asignado_eur: asignadoEur != null ? round2(asignadoEur) : '',
+        precio_base_mxn: precioBaseMxn != null ? round2(precioBaseMxn) : '',
         precio_base_eur: precioBaseEur != null ? round2(precioBaseEur) : '',
-        origen_costo: isIntercompany ? 'Intercompany' : 'Proveedor',
+        origen_costo: origenCosto,
         precio_ferias: (fairPriceByProduct[p.id] || []).join(' | '),
         alto_cm: p.height_cm ?? '',
         ancho_cm: p.width_cm ?? '',

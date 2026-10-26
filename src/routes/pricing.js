@@ -295,6 +295,9 @@ router.get('/products', async (req, res) => {
         ...p,
         totalPct: rowPct,
         shippingUnitEur: hasFixedShipping && !isIntercompany ? round2(shippingUnitEur) : null,
+        // Sin envío asignado = usa el % estimado de embalaje/envío (el intercompany no lo necesita)
+        shippingEstimated: !hasFixedShipping && !isIntercompany,
+        anyShippingLots: shipMap.size > 0,
         multiplier: settings.generalMultiplier,
         costSource: isIntercompany ? 'intercompany' : 'supplier',
         costoMxn: round2(costoMxn),
