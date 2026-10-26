@@ -3,7 +3,16 @@ import { query } from '../db/pool.js';
 import { getGlobalSettings, getCategoryList } from './pricing.js';
 
 const router = express.Router();
+const DIST_MODES = ['per_piece', 'by_price', 'none'];
+// costCategories: lista de categorías que SÍ absorben costo de feria (null/[] = todas)
+const cleanCats = (c) => Array.isArray(c) && c.length ? c.map(String) : null;
 const round2 = n => Math.round(n * 100) / 100;
+
+// GET /api/fairs/categories-list — categorías disponibles (para elegir cuáles absorben el costo)
+router.get('/categories-list', async (req, res) => {
+  try { res.json(await getCategoryList()); }
+  catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch categories' }); }
+});
 
 // GET /api/fairs — lista de ferias con total de productos asignados
 router.get('/', async (req, res) => {
@@ -101,11 +110,11 @@ router.put('/:id/multipliers', async (req, res) => {
 // POST /api/fairs
 router.post('/', async (req, res) => {
   try {
-    const { name, totalCostEur, notes } = req.body;
+    const { name, totalCostEur, notes, costDistribution, costCategories } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     const r = await query(
-      `INSERT INTO fairs (name, total_cost_eur, notes) VALUES ($1,$2,$3) RETURNING *`,
-      [name.trim(), parseFloat(totalCostEur) || 0, notes || null]
+      `INSERT INTO fairs (name, total_cost_eur, notes, cost_distribution, cost_categories) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [name.trim(), parseFloat(totalCostEur) || 0, notes || null, DIST_MODES.includes(costDistribution) ? costDistribution : 'per_piece', cleanCats(costCategories)]
     );
     res.status(201).json(r.rows[0]);
   } catch (err) {
@@ -117,11 +126,11 @@ router.post('/', async (req, res) => {
 // PUT /api/fairs/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { name, totalCostEur, notes } = req.body;
+    const { name, totalCostEur, notes, costDistribution, costCategories } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
     const r = await query(
-      `UPDATE fairs SET name=$1, total_cost_eur=$2, notes=$3, updated_at=now() WHERE id=$4 RETURNING *`,
-      [name.trim(), parseFloat(totalCostEur) || 0, notes || null, req.params.id]
+      `UPDATE fairs SET name=$1, total_cost_eur=$2, notes=$3, cost_distribution=$4, cost_categories=$5, updated_at=now() WHERE id=$6 RETURNING *`,
+      [name.trim(), parseFloat(totalCostEur) || 0, notes || null, DIST_MODES.includes(costDistribution) ? costDistribution : 'per_piece', cleanCats(costCategories), req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Fair not found' });
     res.json(r.rows[0]);
@@ -189,16 +198,12 @@ export async function computeFairPricing(fairId) {
     // en EUR entre el total de piezas y se convierte a MXN con el tipo de cambio
     // para sumarlo al precio base — es el mismo monto por pieza para todos los productos.
     const fairCostPerUnitEur = totalQuantity > 0 ? (parseFloat(fair.total_cost_eur) || 0) / totalQuantity : 0;
-    const fairCostPerUnitMxn = fairCostPerUnitEur * settings.exchangeRate;
-
-    const products = assigned.rows.map(p => {
+    // Precio base de cada producto (antes de multiplicador y de costo de feria).
+    // Prioridad: el "Precio EUR asignado" (confirmado a mano); si no hay, el precio
+    // calculado automático de General — que usa el precio intercompany como costo si
+    // el producto ya fue transferido a Luumil Alemania, o el costo del proveedor si no.
+    const baseOf = (p) => {
       const purchasePrice = parseFloat(p.purchase_price_mxn) || 0;
-
-      // Precio base: el precio que ya está decidido en Pricing → General para
-      // este producto. Prioridad: el "Precio EUR asignado" (confirmado a mano);
-      // si no se ha confirmado ninguno, se usa el precio calculado automático de
-      // General — que a su vez usa el precio intercompany como costo si el
-      // producto ya fue transferido a Luumil Alemania, o el costo del proveedor si no.
       const isIntercompany = p.intercompany_price_eur != null;
       const costoBaseGeneralMxn = isIntercompany
         ? parseFloat(p.intercompany_price_eur) * settings.exchangeRate
@@ -206,9 +211,45 @@ export async function computeFairPricing(fairId) {
       const generalCalculadoMxn = costoBaseGeneralMxn * settings.generalMultiplier;
       const generalCalculadoEur = settings.exchangeRate > 0 ? generalCalculadoMxn / settings.exchangeRate : null;
       const assignedEur = p.sale_price_eur != null ? parseFloat(p.sale_price_eur) : null;
-      const basePriceSource = assignedEur != null ? 'assigned' : 'calculated';
       const basePriceEur = assignedEur != null ? assignedEur : generalCalculadoEur;
-      const basePriceMxn = basePriceEur != null ? basePriceEur * settings.exchangeRate : null;
+      return {
+        isIntercompany,
+        basePriceSource: assignedEur != null ? 'assigned' : 'calculated',
+        basePriceEur,
+        basePriceMxn: basePriceEur != null ? basePriceEur * settings.exchangeRate : null,
+      };
+    };
+    const bases = new Map(assigned.rows.map(p => [p.id, baseOf(p)]));
+    const qtyOf = (p) => parseInt(p.quantity) || 0;
+    const catOf = (p) => (p.categories || [])[0] || 'Sin categoría';
+
+    // Distribución del costo de la feria (EUR por pieza de cada producto):
+    // 1) Primero se eligen las categorías que SÍ absorben el costo (fair.cost_categories;
+    //    vacío = todas). Los productos de las demás categorías no cargan costo de feria.
+    // 2) El costo total se reparte solo entre los productos elegidos, según el modo:
+    //    - per_piece: mismo monto por pieza (total / piezas elegidas).
+    //    - by_price:  proporcional al precio base × piezas (los más caros absorben más).
+    //    - none:      no se suma costo de feria.
+    const totalFairCost = parseFloat(fair.total_cost_eur) || 0;
+    const mode = fair.cost_distribution === 'none' || fair.cost_distribution === 'by_price' ? fair.cost_distribution : 'per_piece';
+    const costCats = Array.isArray(fair.cost_categories) && fair.cost_categories.length ? new Set(fair.cost_categories) : null;
+    const absorbs = (p) => !costCats || costCats.has(catOf(p));
+    const absorbing = assigned.rows.filter(absorbs);
+    const absorbingQty = absorbing.reduce((s, p) => s + qtyOf(p), 0);
+    const feeUnitEur = new Map();
+    assigned.rows.forEach(p => feeUnitEur.set(p.id, 0));
+    if (mode === 'by_price') {
+      const weightTotal = absorbing.reduce((s, p) => s + (bases.get(p.id).basePriceEur || 0) * qtyOf(p), 0);
+      absorbing.forEach(p => feeUnitEur.set(p.id,
+        weightTotal > 0 ? totalFairCost * (bases.get(p.id).basePriceEur || 0) / weightTotal : 0));
+    } else if (mode === 'per_piece') {
+      absorbing.forEach(p => feeUnitEur.set(p.id, absorbingQty > 0 ? totalFairCost / absorbingQty : 0));
+    }
+
+    const products = assigned.rows.map(p => {
+      const { isIntercompany, basePriceSource, basePriceEur, basePriceMxn } = bases.get(p.id);
+      const unitFeeEur = feeUnitEur.get(p.id) || 0;
+      const fairCostPerUnitMxn = unitFeeEur * settings.exchangeRate;
 
       // El multiplicador (margen) se aplica SOLO al precio base; el costo de la
       // feria por pieza se suma DESPUÉS, sin multiplicarse: precio = base × mult + feria.
@@ -220,7 +261,7 @@ export async function computeFairPricing(fairId) {
 
       return {
         ...p,
-        fairCostPerUnitEur: round2(fairCostPerUnitEur),
+        fairCostPerUnitEur: round2(unitFeeEur),
         basePriceSource,
         costSource: isIntercompany ? 'intercompany' : 'supplier',
         basePriceMxn: basePriceMxn != null ? round2(basePriceMxn) : null,
@@ -234,7 +275,7 @@ export async function computeFairPricing(fairId) {
     });
 
   return {
-    fair: { ...fair, productCount, totalQuantity, fairCostPerUnitEur: round2(fairCostPerUnitEur) },
+    fair: { ...fair, productCount, totalQuantity, fairCostPerUnitEur: round2(absorbingQty > 0 ? totalFairCost / absorbingQty : 0), costDistribution: mode, costCategories: costCats ? [...costCats] : [] },
     products,
   };
 }
