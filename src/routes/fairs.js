@@ -35,7 +35,7 @@ router.get('/assignable-products', async (req, res) => {
       LEFT JOIN LATERAL (
         SELECT SUM(qty)::int AS qty,
           json_agg(json_build_object('location', location_name, 'qty', qty)) AS locations
-        FROM current_stock WHERE product_id = p.id
+        FROM current_stock WHERE product_id = p.id AND location_type <> 'writeoff'
       ) stk ON true
       WHERE EXISTS (SELECT 1 FROM purchase_order_lines pol WHERE pol.product_id = p.id)
          OR EXISTS (SELECT 1 FROM current_stock cs WHERE cs.product_id = p.id)
@@ -163,7 +163,8 @@ export async function computeFairPricing(fairId) {
         p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
         COALESCE(fm.multiplier, $2) AS multiplier,
         ic.price_eur AS intercompany_price_eur,
-        COALESCE(stk.qty, 0) AS available_qty
+        COALESCE(stk.qty, 0) AS available_qty,
+        COALESCE(mun.qty, 0) AS munich_qty
       FROM fair_products fp
       JOIN products p ON p.id = fp.product_id
       LEFT JOIN suppliers s ON s.id = p.supplier_id
@@ -173,8 +174,11 @@ export async function computeFairPricing(fairId) {
         WHERE product_id = p.id ORDER BY transfer_date DESC, created_at DESC LIMIT 1
       ) ic ON true
       LEFT JOIN LATERAL (
-        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id
+        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id AND location_type <> 'writeoff'
       ) stk ON true
+      LEFT JOIN LATERAL (
+        SELECT SUM(qty)::int AS qty FROM current_stock WHERE product_id = p.id AND location_name = 'Bodega Munich'
+      ) mun ON true
       WHERE fp.fair_id = $1
       ORDER BY p.name_es
     `, [fairId, settings.generalMultiplier]);
@@ -206,9 +210,12 @@ export async function computeFairPricing(fairId) {
       const basePriceEur = assignedEur != null ? assignedEur : generalCalculadoEur;
       const basePriceMxn = basePriceEur != null ? basePriceEur * settings.exchangeRate : null;
 
-      const totalMxn = basePriceMxn != null ? basePriceMxn + fairCostPerUnitMxn : null;
-      const totalEur = settings.exchangeRate > 0 && totalMxn != null ? totalMxn / settings.exchangeRate : null;
-      const precioCalculadoMxn = totalMxn != null ? totalMxn * (parseFloat(p.multiplier) || 1) : null;
+      // El multiplicador (margen) se aplica SOLO al precio base; el costo de la
+      // feria por pieza se suma DESPUÉS, sin multiplicarse: precio = base × mult + feria.
+      const multiplier = parseFloat(p.multiplier) || 1;
+      const markedUpMxn = basePriceMxn != null ? basePriceMxn * multiplier : null;
+      const markedUpEur = settings.exchangeRate > 0 && markedUpMxn != null ? markedUpMxn / settings.exchangeRate : null;
+      const precioCalculadoMxn = markedUpMxn != null ? markedUpMxn + fairCostPerUnitMxn : null;
       const precioCalculadoEur = settings.exchangeRate > 0 && precioCalculadoMxn != null ? precioCalculadoMxn / settings.exchangeRate : null;
 
       return {
@@ -218,8 +225,8 @@ export async function computeFairPricing(fairId) {
         costSource: isIntercompany ? 'intercompany' : 'supplier',
         basePriceMxn: basePriceMxn != null ? round2(basePriceMxn) : null,
         basePriceEur: basePriceEur != null ? round2(basePriceEur) : null,
-        totalMxn: totalMxn != null ? round2(totalMxn) : null,
-        totalEur: totalEur != null ? round2(totalEur) : null,
+        markedUpMxn: markedUpMxn != null ? round2(markedUpMxn) : null,
+        markedUpEur: markedUpEur != null ? round2(markedUpEur) : null,
         precioCalculadoMxn: precioCalculadoMxn != null ? round2(precioCalculadoMxn) : null,
         precioCalculadoEur: precioCalculadoEur != null ? round2(precioCalculadoEur) : null,
         exchangeRate: settings.exchangeRate,
@@ -292,6 +299,26 @@ router.post('/:id/products/bulk-remove', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to bulk remove products' });
+  }
+});
+
+// POST /api/fairs/:id/products/use-munich-qty — para los productos de la feria que
+// tienen piezas en Bodega Munich, la cantidad asignada pasa a ser la disponible allá.
+// Los que no tienen stock en Munich no se tocan.
+router.post('/:id/products/use-munich-qty', async (req, res) => {
+  try {
+    const r = await query(`
+      UPDATE fair_products fp SET quantity = m.qty
+      FROM (
+        SELECT product_id, SUM(qty)::int AS qty FROM current_stock
+        WHERE location_name = 'Bodega Munich' GROUP BY product_id HAVING SUM(qty) > 0
+      ) m
+      WHERE fp.fair_id = $1 AND fp.product_id = m.product_id AND fp.quantity IS DISTINCT FROM m.qty
+    `, [req.params.id]);
+    res.json({ ok: true, updated: r.rowCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to use Munich quantities' });
   }
 });
 

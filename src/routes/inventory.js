@@ -25,7 +25,8 @@ router.get('/stock', async (req, res) => {
         p.photos, p.purchase_price_mxn,
         s.id AS supplier_id, s.name AS supplier_name,
         json_object_agg(l.name, cs.qty) FILTER (WHERE cs.qty > 0) AS stock_by_location,
-        SUM(cs.qty) AS total_qty,
+        -- "Baja" (productos dañados / dados de baja) no cuenta como inventario disponible
+        COALESCE(SUM(cs.qty) FILTER (WHERE l.type <> 'writeoff'), 0) AS total_qty,
         (
           -- Piezas todavía por recibir en órdenes vivas (no canceladas) — puede
           -- coexistir con stock ya recibido (ej. una orden ya llegó y otra

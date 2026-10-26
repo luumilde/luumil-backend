@@ -114,7 +114,8 @@ router.get('/stock-by-category', async (req, res) => {
           SUM(CASE WHEN bodega = 'Bodega MX (CDMX)' THEN qty ELSE 0 END) AS bodega_mx,
           SUM(CASE WHEN bodega = 'En tránsito (MX→DE)' THEN qty ELSE 0 END) AS en_transito,
           SUM(CASE WHEN bodega = 'Bodega Munich' THEN qty ELSE 0 END) AS bodega_munich,
-          SUM(qty) AS total_en_bodega
+          SUM(CASE WHEN bodega = 'Baja' THEN qty ELSE 0 END) AS baja,
+          SUM(CASE WHEN bodega = 'Baja' THEN 0 ELSE qty END) AS total_en_bodega
         FROM stock
         GROUP BY categoria
       ),
@@ -134,6 +135,7 @@ router.get('/stock-by-category', async (req, res) => {
         COALESCE(sp.en_transito, 0) AS en_transito,
         COALESCE(sp.bodega_munich, 0) AS bodega_munich,
         COALESCE(sp.total_en_bodega, 0) AS total_en_bodega,
+        COALESCE(sp.baja, 0) AS baja,
         COALESCE(pe.pendiente, 0) AS pendiente,
         COALESCE(sp.total_en_bodega, 0) + COALESCE(pe.pendiente, 0) AS gran_total
       FROM cats c
