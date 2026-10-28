@@ -246,7 +246,9 @@ router.get('/product-catalog', async (req, res) => {
     const fairsRes = await query(`SELECT id, name FROM fairs ORDER BY name`);
     const fairPriceByProduct = {};
     const fairFinalByProduct = {};   // precio final definido (aceptado/cambiado) por feria
-    const fairProposalByProduct = {}; // propuesta redondeada a decena por feria
+    const fairProposalByProduct = {}; // propuesta de precio al público (con IVA, redondeada) por feria
+    const fairPublicCalcByProduct = {}; // precio calculado con IVA por feria
+    const vatByProduct = {};            // IVA aplicable al producto (19% general, 7% arte)
     for (const fair of fairsRes.rows) {
       const computed = await computeFairPricing(fair.id);
       if (!computed) continue;
@@ -254,6 +256,9 @@ router.get('/product-catalog', async (req, res) => {
         if (!fairPriceByProduct[fp.id]) fairPriceByProduct[fp.id] = [];
         const eur = fp.precioCalculadoEur != null ? `€${fp.precioCalculadoEur}` : '—';
         fairPriceByProduct[fp.id].push(`${fair.name}: ${eur}`);
+        if (!fairPublicCalcByProduct[fp.id]) fairPublicCalcByProduct[fp.id] = [];
+        fairPublicCalcByProduct[fp.id].push(`${fair.name}: ${fp.publicCalcEur != null ? '€' + fp.publicCalcEur : '—'}`);
+        vatByProduct[fp.id] = fp.vatPct;
         if (!fairFinalByProduct[fp.id]) fairFinalByProduct[fp.id] = [];
         if (!fairProposalByProduct[fp.id]) fairProposalByProduct[fp.id] = [];
         fairFinalByProduct[fp.id].push(`${fair.name}: ${fp.fair_sale_price_eur != null ? '€' + fp.fair_sale_price_eur + ' con IVA (neto €' + fp.finalNetEur + ')' : 'sin definir'}`);
@@ -353,6 +358,8 @@ router.get('/product-catalog', async (req, res) => {
         precio_base_eur: precioBaseEur != null ? round2(precioBaseEur) : '',
         origen_costo: origenCosto,
         precio_ferias: (fairPriceByProduct[p.id] || []).join(' | '),
+        iva_aplicable_pct: vatByProduct[p.id] ?? '',
+        precio_calculado_con_iva_ferias: (fairPublicCalcByProduct[p.id] || []).join(' | '),
         precio_final_ferias: (fairFinalByProduct[p.id] || []).join(' | '),
         propuesta_ferias: (fairProposalByProduct[p.id] || []).join(' | '),
         alto_cm: p.height_cm ?? '',
