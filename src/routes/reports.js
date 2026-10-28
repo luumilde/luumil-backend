@@ -256,8 +256,8 @@ router.get('/product-catalog', async (req, res) => {
         fairPriceByProduct[fp.id].push(`${fair.name}: ${eur}`);
         if (!fairFinalByProduct[fp.id]) fairFinalByProduct[fp.id] = [];
         if (!fairProposalByProduct[fp.id]) fairProposalByProduct[fp.id] = [];
-        fairFinalByProduct[fp.id].push(`${fair.name}: ${fp.fair_sale_price_eur != null ? '€' + fp.fair_sale_price_eur : 'sin definir'}`);
-        fairProposalByProduct[fp.id].push(`${fair.name}: ${fp.proposedPriceEur != null ? '€' + fp.proposedPriceEur : '—'}`);
+        fairFinalByProduct[fp.id].push(`${fair.name}: ${fp.fair_sale_price_eur != null ? '€' + fp.fair_sale_price_eur + ' con IVA (neto €' + fp.finalNetEur + ')' : 'sin definir'}`);
+        fairProposalByProduct[fp.id].push(`${fair.name}: ${fp.proposedPriceEur != null ? '€' + fp.proposedPriceEur + ' con IVA (neto €' + fp.proposedNetEur + ')' : '—'}`);
       }
     }
 

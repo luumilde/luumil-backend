@@ -8,6 +8,13 @@ const DIST_MODES = ['per_piece', 'by_price', 'none'];
 const cleanCats = (c) => Array.isArray(c) && c.length ? c.map(String) : null;
 const round2 = n => Math.round(n * 100) / 100;
 
+// IVA alemán (MwSt) para el precio al público: 19% general, 7% para objetos de arte/cultura.
+// Los precios de feria se calculan SIN IVA; el precio final (etiqueta) se guarda CON IVA.
+const VAT_GENERAL_PCT = 19;
+const VAT_REDUCED_PCT = 7;
+const VAT_REDUCED_CATEGORIES = ['Art'];
+const vatPctFor = (categories) => VAT_REDUCED_CATEGORIES.includes((categories || [])[0]) ? VAT_REDUCED_PCT : VAT_GENERAL_PCT;
+
 // GET /api/fairs/categories-list — categorías disponibles (para elegir cuáles absorben el costo)
 router.get('/categories-list', async (req, res) => {
   try { res.json(await getCategoryList()); }
@@ -265,15 +272,26 @@ export async function computeFairPricing(fairId) {
       const precioCalculadoMxn = markedUpMxn != null ? markedUpMxn + fairCostPerUnitMxn : null;
       const precioCalculadoEur = settings.exchangeRate > 0 && precioCalculadoMxn != null ? precioCalculadoMxn / settings.exchangeRate : null;
 
-      // Propuesta de precio final: el precio calculado redondeado a la decena de euros
-      // más cercana (arriba o abajo; mínimo 10). Myriam la acepta o la cambia a mano,
-      // y lo que acepte/cambie se guarda como el precio EUR de esta feria.
-      const proposedPriceEur = precioCalculadoEur != null && precioCalculadoEur > 0
-        ? Math.max(10, Math.round(precioCalculadoEur / 10) * 10) : null;
+      // Precio al público: el precio calculado (sin IVA) + IVA. La propuesta de precio final
+      // es ese precio con IVA redondeado al múltiplo más cercano (arriba o abajo): de 5 €
+      // si es menor a 60 €, de 10 € a partir de 60 €; mínimo 5 €. Myriam la acepta o la
+      // cambia a mano, y lo que acepte/cambie se guarda como el precio de etiqueta (CON IVA).
+      const vatPct = vatPctFor(p.categories);
+      const publicCalcEur = precioCalculadoEur != null ? precioCalculadoEur * (1 + vatPct / 100) : null;
+      const roundStep = publicCalcEur != null && publicCalcEur < 60 ? 5 : 10;
+      const proposedPriceEur = publicCalcEur != null && publicCalcEur > 0
+        ? Math.max(5, Math.round(publicCalcEur / roundStep) * roundStep) : null;
+      const proposedNetEur = proposedPriceEur != null ? proposedPriceEur / (1 + vatPct / 100) : null;
+      const finalPriceEur = p.fair_sale_price_eur != null ? parseFloat(p.fair_sale_price_eur) : null;
+      const finalNetEur = finalPriceEur != null ? finalPriceEur / (1 + vatPct / 100) : null;
 
       return {
         ...p,
         proposedPriceEur,
+        proposedNetEur: proposedNetEur != null ? round2(proposedNetEur) : null,
+        vatPct,
+        publicCalcEur: publicCalcEur != null ? round2(publicCalcEur) : null,
+        finalNetEur: finalNetEur != null ? round2(finalNetEur) : null,
         shippingEstimated,
         anyShippingLots: shipMap.size > 0,
         fairCostPerUnitEur: round2(unitFeeEur),
@@ -379,7 +397,7 @@ router.post('/:id/products/use-munich-qty', async (req, res) => {
 });
 
 // POST /api/fairs/:id/products/accept-proposals — aceptar de un jalón la propuesta de
-// precio (calculado redondeado a decena) en todos los productos que aún no tienen
+// precio (calculado redondeado: base 5 bajo 60 €, base 10 desde 60 €) en todos los productos que aún no tienen
 // precio final definido para esta feria. No pisa los precios ya aceptados o cambiados.
 router.post('/:id/products/accept-proposals', async (req, res) => {
   try {
