@@ -245,6 +245,8 @@ router.get('/product-catalog', async (req, res) => {
     // resumen en texto por producto (puede estar en varias ferias a la vez).
     const fairsRes = await query(`SELECT id, name FROM fairs ORDER BY name`);
     const fairPriceByProduct = {};
+    const fairFinalByProduct = {};   // precio final definido (aceptado/cambiado) por feria
+    const fairProposalByProduct = {}; // propuesta redondeada a decena por feria
     for (const fair of fairsRes.rows) {
       const computed = await computeFairPricing(fair.id);
       if (!computed) continue;
@@ -252,6 +254,10 @@ router.get('/product-catalog', async (req, res) => {
         if (!fairPriceByProduct[fp.id]) fairPriceByProduct[fp.id] = [];
         const eur = fp.precioCalculadoEur != null ? `€${fp.precioCalculadoEur}` : '—';
         fairPriceByProduct[fp.id].push(`${fair.name}: ${eur}`);
+        if (!fairFinalByProduct[fp.id]) fairFinalByProduct[fp.id] = [];
+        if (!fairProposalByProduct[fp.id]) fairProposalByProduct[fp.id] = [];
+        fairFinalByProduct[fp.id].push(`${fair.name}: ${fp.fair_sale_price_eur != null ? '€' + fp.fair_sale_price_eur : 'sin definir'}`);
+        fairProposalByProduct[fp.id].push(`${fair.name}: ${fp.proposedPriceEur != null ? '€' + fp.proposedPriceEur : '—'}`);
       }
     }
 
@@ -347,6 +353,8 @@ router.get('/product-catalog', async (req, res) => {
         precio_base_eur: precioBaseEur != null ? round2(precioBaseEur) : '',
         origen_costo: origenCosto,
         precio_ferias: (fairPriceByProduct[p.id] || []).join(' | '),
+        precio_final_ferias: (fairFinalByProduct[p.id] || []).join(' | '),
+        propuesta_ferias: (fairProposalByProduct[p.id] || []).join(' | '),
         alto_cm: p.height_cm ?? '',
         ancho_cm: p.width_cm ?? '',
         profundidad_cm: p.depth_cm ?? '',
