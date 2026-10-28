@@ -21,6 +21,77 @@ router.get('/categories-list', async (req, res) => {
   catch (err) { console.error(err); res.status(500).json({ error: 'Failed to fetch categories' }); }
 });
 
+// GET /api/fairs/lookup/:code?fairId= — ficha para el cliente al escanear/escribir el código.
+// Solo devuelve datos aptos para mostrar al cliente (nunca costos, márgenes ni datos bancarios).
+// :code acepta "LUM-0232", "*LUM-0232*" (Code 39), "lum-232" o solo "232".
+const pricingCache = new Map(); // fairId -> { at, data }
+async function cachedFairPricing(fairId) {
+  const hit = pricingCache.get(String(fairId));
+  if (hit && Date.now() - hit.at < 30000) return hit.data;
+  const data = await computeFairPricing(fairId);
+  pricingCache.set(String(fairId), { at: Date.now(), data });
+  return data;
+}
+function normalizeSku(raw) {
+  let c = String(raw || '').toUpperCase().replace(/[\s*]/g, '');
+  if (/^\d+$/.test(c)) c = 'LUM-' + c.padStart(4, '0');
+  const m = c.match(/^LUM-?(\d+)$/);
+  if (m) c = 'LUM-' + m[1].padStart(4, '0');
+  return c;
+}
+router.get('/lookup/:code', async (req, res) => {
+  try {
+    const sku = normalizeSku(req.params.code);
+    const pr = await query(`
+      SELECT p.id, p.sku, p.name_es, p.name_de, p.categories, p.materials, p.height_cm, p.width_cm, p.depth_cm,
+             p.weight_g, p.photos,
+             s.id AS supplier_id, s.name AS supplier_name, s.technique AS supplier_technique,
+             s.state AS supplier_state, s.municipality AS supplier_municipality, s.photos AS supplier_photos
+      FROM products p LEFT JOIN suppliers s ON s.id = p.supplier_id
+      WHERE p.sku = $1`, [sku]);
+    if (!pr.rows.length) return res.status(404).json({ error: `No encontré el producto ${sku}` });
+    const p = pr.rows[0];
+
+    let fairId = req.query.fairId ? parseInt(req.query.fairId) : null;
+    if (!fairId) {
+      const f = await query(`SELECT id FROM fairs ORDER BY id DESC LIMIT 1`);
+      fairId = f.rows[0]?.id || null;
+    }
+    let price = null;
+    if (fairId) {
+      const result = await cachedFairPricing(fairId);
+      const fp = result?.products.find(x => x.id === p.id);
+      if (fp) {
+        const vatPct = fp.vatPct;
+        const withVat = fp.fair_sale_price_eur != null ? parseFloat(fp.fair_sale_price_eur)
+          : (fp.proposedPriceEur != null ? fp.proposedPriceEur : null);
+        price = {
+          fairName: result.fair.name,
+          vatPct,
+          withVatEur: withVat,
+          netEur: withVat != null ? round2(withVat / (1 + vatPct / 100)) : null,
+          vatAmountEur: withVat != null ? round2(withVat - withVat / (1 + vatPct / 100)) : null,
+          isProposal: fp.fair_sale_price_eur == null,
+        };
+      }
+    }
+    res.json({
+      sku: p.sku, nameDe: p.name_de, nameEs: p.name_es,
+      categories: p.categories, materials: p.materials,
+      heightCm: p.height_cm, widthCm: p.width_cm, depthCm: p.depth_cm, weightG: p.weight_g,
+      photos: p.photos,
+      supplier: p.supplier_id ? {
+        name: p.supplier_name, technique: p.supplier_technique,
+        state: p.supplier_state, municipality: p.supplier_municipality, photos: p.supplier_photos,
+      } : null,
+      fairId, price,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to look up product' });
+  }
+});
+
 // GET /api/fairs — lista de ferias con total de productos asignados
 router.get('/', async (req, res) => {
   try {
