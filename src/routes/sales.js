@@ -5,6 +5,16 @@ import { getGlobalSettings } from './pricing.js';
 const router = express.Router();
 const round2 = n => Math.round(n * 100) / 100;
 
+// IVA por línea (ferias: 7% Art / 19% resto). Se crea la columna sola la primera vez.
+let vatColumnReady = null;
+const ensureVatColumn = () => {
+  if (!vatColumnReady) {
+    vatColumnReady = query(`ALTER TABLE sales_order_lines ADD COLUMN IF NOT EXISTS vat_pct NUMERIC`)
+      .catch(err => { vatColumnReady = null; throw err; });
+  }
+  return vatColumnReady;
+};
+
 // Qué bodega representa el stock vendible de cada entidad. Las ventas siempre
 // son "fuera del ecosistema Luumil" (a un cliente real), así que sí descuentan
 // inventario — a diferencia de una transferencia intercompany, que es interna
@@ -88,6 +98,7 @@ router.get('/', async (req, res) => {
 // GET /api/sales/:id — detalle con líneas
 router.get('/:id', async (req, res) => {
   try {
+    await ensureVatColumn();
     const orderRes = await query(`
       SELECT so.*, f.name AS fair_name
       FROM sales_orders so LEFT JOIN fairs f ON f.id = so.fair_id
@@ -133,9 +144,14 @@ router.post('/', async (req, res) => {
       }
     }
 
+    await ensureVatColumn();
+    // IVA por línea (l.vatPct); si una línea no lo trae, se usa el IVA general de la orden.
+    const orderVat = parseFloat(b.vatPct) || 0;
+    const lineVat = (l) => (l.vatPct !== undefined && l.vatPct !== null && l.vatPct !== '') ? (parseFloat(l.vatPct) || 0) : orderVat;
     const subtotal = lines.reduce((s, l) => s + parseFloat(l.quantity) * parseFloat(l.unitPrice || 0), 0);
-    const vatPct = parseFloat(b.vatPct) || 0;
-    const vatAmount = subtotal * (vatPct / 100);
+    const vatAmount = lines.reduce((s, l) => s + parseFloat(l.quantity) * parseFloat(l.unitPrice || 0) * lineVat(l) / 100, 0);
+    const distinctVat = [...new Set(lines.map(lineVat))];
+    const vatPct = distinctVat.length === 1 ? distinctVat[0] : 0; // si hay tasas mixtas, el detalle sale de las líneas
     const total = subtotal + vatAmount;
     const folio = await nextFolio('VTA');
 
@@ -158,9 +174,9 @@ router.post('/', async (req, res) => {
     for (const l of lines) {
       const lineTotal = round2(parseFloat(l.quantity) * parseFloat(l.unitPrice || 0));
       await query(`
-        INSERT INTO sales_order_lines (sales_order_id, product_id, quantity, unit_price, line_total)
-        VALUES ($1,$2,$3,$4,$5)
-      `, [order.id, l.productId, l.quantity, l.unitPrice || 0, lineTotal]);
+        INSERT INTO sales_order_lines (sales_order_id, product_id, quantity, unit_price, line_total, vat_pct)
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `, [order.id, l.productId, l.quantity, l.unitPrice || 0, lineTotal, lineVat(l)]);
 
       if (loc.rows.length) {
         await query(`

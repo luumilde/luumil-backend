@@ -12,7 +12,7 @@ const round2 = n => Math.round(n * 100) / 100;
 // Los precios de feria se calculan SIN IVA; el precio final (etiqueta) se guarda CON IVA.
 const VAT_GENERAL_PCT = 19;
 const VAT_REDUCED_PCT = 7;
-const VAT_REDUCED_CATEGORIES = ['Art'];
+const VAT_REDUCED_CATEGORIES = []; // por ahora 19% para todo (antes: ['Art'] al 7%)
 const vatPctFor = (categories) => VAT_REDUCED_CATEGORIES.includes((categories || [])[0]) ? VAT_REDUCED_PCT : VAT_GENERAL_PCT;
 
 // GET /api/fairs/categories-list — categorías disponibles (para elegir cuáles absorben el costo)
