@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { requireAuth } from './middleware/auth.js';
+import { query } from './db/pool.js';
 import authRoutes from './routes/auth.js';
 import suppliersRoutes from './routes/suppliers.js';
 import productsRoutes from './routes/products.js';
@@ -32,6 +33,26 @@ app.use('/api/uploads', uploadsRoutes);
 
 // Auth pública
 app.use('/api/auth', authRoutes);
+
+// Pública (sin login): lista de videos de talleres. Solo expone nombre, técnica,
+// región y enlace del video — nada de contacto, datos bancarios ni costos.
+app.get('/api/public/videos', async (req, res) => {
+  try {
+    const r = await query(`
+      SELECT id, name, technique, state, municipality, video_url
+      FROM suppliers
+      WHERE video_url IS NOT NULL AND TRIM(video_url) <> ''
+      ORDER BY name`);
+    res.json(r.rows.map(s => ({
+      id: s.id, name: s.name, technique: s.technique,
+      region: [s.municipality, s.state].filter(x => x && x.toLowerCase() !== 'other').join(', '),
+      videoUrl: s.video_url.trim(),
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch videos' });
+  }
+});
 
 // Rutas protegidas
 app.use('/api/suppliers', requireAuth, suppliersRoutes);
