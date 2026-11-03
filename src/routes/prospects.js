@@ -50,7 +50,8 @@ const ensureTable = () => {
           ADD COLUMN IF NOT EXISTS comments TEXT,
           ADD COLUMN IF NOT EXISTS business_type TEXT,
           ADD COLUMN IF NOT EXISTS priority TEXT,
-          ADD COLUMN IF NOT EXISTS follow_up_date DATE`))
+          ADD COLUMN IF NOT EXISTS follow_up_date DATE,
+          ADD COLUMN IF NOT EXISTS contact_app TEXT`))
       .catch(err => { tableReady = null; throw err; });
   }
   return tableReady;
@@ -59,7 +60,7 @@ const ensureTable = () => {
 const LIST_COLS = `id, person_type, legal_name, trade_name, street, street_number, interior, city, state, zip_code, country,
   website, instagram, contact_name, contact_position, contact_phone, contact_email, consent_data, consent_marketing,
   consent_text_version, consent_at, paper_form, paper_form_photo_url, capture_date, capture_place, captured_by, created_at,
-  interest_categories, interest_text, interest_skus, comments, business_type, priority, follow_up_date,
+  interest_categories, interest_text, interest_skus, comments, business_type, priority, follow_up_date, contact_app,
   (signature_png IS NOT NULL) AS has_signature`;
 
 // GET /api/prospects — lista (sin la firma, que es pesada)
@@ -116,8 +117,8 @@ router.post('/', async (req, res) => {
          website, instagram, contact_name, contact_position, contact_phone, contact_email,
          consent_data, consent_marketing, consent_text_version, consent_at,
          signature_png, paper_form, paper_form_photo_url, paper_form_photo_id, capture_date, capture_place, captured_by,
-         interest_categories, interest_text, interest_skus, comments, business_type, priority, follow_up_date)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,now(),$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
+         interest_categories, interest_text, interest_skus, comments, business_type, priority, follow_up_date, contact_app)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,now(),$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
       RETURNING id`, [
       type, clean(b.legalName), clean(b.tradeName), clean(b.street), clean(b.streetNumber), clean(b.interior),
       clean(b.city), clean(b.state), clean(b.zipCode), clean(b.country),
@@ -131,7 +132,7 @@ router.post('/', async (req, res) => {
       Array.isArray(b.interestSkus) ? b.interestSkus.map(x => String(x).trim().toUpperCase()).filter(Boolean) : [],
       clean(b.comments), clean(b.businessType),
       ['hot', 'warm', 'cold'].includes(b.priority) ? b.priority : null,
-      clean(b.followUpDate),
+      clean(b.followUpDate), clean(b.contactApp),
     ]);
     res.status(201).json({ id: r.rows[0].id });
   } catch (err) {
