@@ -39,6 +39,47 @@ function normalizeSku(raw) {
   if (m) c = 'LUM-' + m[1].padStart(4, '0');
   return c;
 }
+// GET /api/fairs/search?q=palabras&category=Jewelry&fairId= — busca entre los productos de la feria
+// por una o más palabras (todas deben aparecer en nombre, material, categoría o SKU) y/o por categoría.
+// Devuelve solo datos aptos para el cliente (foto, nombres, categoría, precio de etiqueta).
+const normText = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const firstPhotoUrl = (photos) => {
+  const entries = Object.entries(photos || {}).sort(([a], [b]) => (a === 'Front' ? -1 : b === 'Front' ? 1 : 0));
+  for (const [, v] of entries) {
+    if (v && typeof v === 'object') {
+      if (v.url) return v.url;
+      if (v.dataUrl && v.dataUrl.length < 60000) return v.dataUrl;
+    }
+  }
+  return null;
+};
+router.get('/search', async (req, res) => {
+  try {
+    let fairId = req.query.fairId ? parseInt(req.query.fairId) : null;
+    if (!fairId) {
+      const f = await query(`SELECT id FROM fairs ORDER BY id DESC LIMIT 1`);
+      fairId = f.rows[0]?.id || null;
+    }
+    if (!fairId) return res.json([]);
+    const words = normText(req.query.q).split(/\s+/).filter(Boolean);
+    const category = req.query.category ? String(req.query.category) : '';
+    if (!words.length && !category) return res.json([]);
+    const result = await cachedFairPricing(fairId);
+    const out = (result?.products || []).filter(p => {
+      if (category && !(p.categories || []).includes(category)) return false;
+      const hay = normText([p.sku, p.name_es, p.name_de, (p.categories || []).join(' '), (p.materials || []).join(' ')].join(' '));
+      return words.every(w => hay.includes(w));
+    }).slice(0, 60).map(p => {
+      const gross = p.fair_sale_price_eur != null ? parseFloat(p.fair_sale_price_eur) : p.proposedPriceEur;
+      return { sku: p.sku, nameDe: p.name_de, nameEs: p.name_es, categories: p.categories, photo: firstPhotoUrl(p.photos), priceEur: gross };
+    });
+    res.json(out);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to search products' });
+  }
+});
+
 router.get('/lookup/:code', async (req, res) => {
   try {
     const sku = normalizeSku(req.params.code);
@@ -247,7 +288,7 @@ export async function computeFairPricing(fairId) {
     const assigned = await query(`
       SELECT fp.product_id AS assignment_product_id, fp.sale_price_eur AS fair_sale_price_eur,
         fp.quantity,
-        p.id, p.sku, p.name_es, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
+        p.id, p.sku, p.name_es, p.name_de, p.materials, p.photos, p.purchase_price_mxn, p.sale_price_eur, p.categories, s.name AS supplier_name,
         COALESCE(fm.multiplier, $2) AS multiplier,
         ic.price_eur AS intercompany_price_eur,
         COALESCE(stk.qty, 0) AS available_qty,
