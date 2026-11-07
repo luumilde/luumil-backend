@@ -141,6 +141,33 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/prospects/:id — actualizar interés, productos, comentarios y seguimiento
+// (los datos personales, el consentimiento y la firma no se modifican aquí).
+router.put('/:id', async (req, res) => {
+  try {
+    await ensureTable();
+    const b = req.body || {};
+    const r = await query(`
+      UPDATE prospects SET
+        interest_categories = $1, interest_text = $2, interest_skus = $3, comments = $4,
+        business_type = $5, priority = $6, follow_up_date = $7
+      WHERE id = $8
+      RETURNING ${LIST_COLS}`, [
+      Array.isArray(b.interestCategories) ? b.interestCategories.map(String) : [],
+      clean(b.interestText),
+      Array.isArray(b.interestSkus) ? b.interestSkus.map(x => String(x).trim().toUpperCase()).filter(Boolean) : [],
+      clean(b.comments), clean(b.businessType),
+      ['hot', 'warm', 'cold'].includes(b.priority) ? b.priority : null,
+      clean(b.followUpDate), req.params.id,
+    ]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Prospect not found' });
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update prospect' });
+  }
+});
+
 // DELETE /api/prospects/:id — derecho de supresión (Art. 17 DSGVO)
 router.delete('/:id', async (req, res) => {
   try {
